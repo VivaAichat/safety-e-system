@@ -359,18 +359,36 @@ async function loadSheet2Fallback() {
 
 // Generic GViz to object array (uses labels as keys)
 function gvizToObjects(table) {
-  const keys = table.cols.map(c => (c.label || c.id || '').trim());
-  return table.rows.map(row => {
+  // GViz may return labels or column IDs; prefer labels
+  let keys = table.cols.map(c => (c.label || '').trim());
+  // If all labels are empty, use column IDs
+  if (keys.every(k => !k)) keys = table.cols.map(c => (c.id || '').trim());
+  // If labels look like column IDs (A,B,C) and first row has text, use first row as header
+  const allColIds = keys.every(k => /^[A-Z]{1,2}$/.test(k));
+  let startRow = 0;
+  if (allColIds && table.rows.length > 0) {
+    const firstRow = table.rows[0];
+    const firstVals = firstRow.c.map(c => c && c.v != null ? String(c.v).trim() : '');
+    if (firstVals.some(v => v && !/^\d+$/.test(v))) {
+      keys = firstVals;
+      startRow = 1;
+    }
+  }
+  const result = [];
+  for (let r = startRow; r < table.rows.length; r++) {
+    const row = table.rows[r];
     const obj = {};
     row.c.forEach((cell, i) => {
       if (!cell || cell.v === null || cell.v === undefined) return;
       let val = cell.v;
       const key = keys[i];
+      if (!key) return;
       if (typeof val === 'string' && val.startsWith('Date(')) val = parseGvizDate(val);
       obj[key] = val;
     });
-    return obj;
-  }).filter(o => Object.keys(o).length > 0);
+    if (Object.keys(obj).length > 0) result.push(obj);
+  }
+  return result;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1056,7 +1074,11 @@ function renderTPCTable(items) {
 // ─── DOCUMENTS (from Sheet 2 via GAS) ────────────────────────
 function renderDocuments(){
   const el=document.getElementById('page-documents');
-  const docs = getDocuments();
+  const docs = getDocuments().filter(d => {
+    // Filter out placeholder/empty items
+    const name = d.name || '';
+    return name && name !== '(新增文件)' && name.trim() !== '';
+  });
 
   // Group documents by section
   const sections = {};
@@ -1077,7 +1099,13 @@ function renderDocuments(){
   ];
 
   if (hasDocs) {
-    el.innerHTML=`${isAdmin?'<div style="margin-bottom:16px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-pri" onclick="addDocSection()">+ 新增分類區塊</button></div>':''}
+    const readOnlyNotice = !gasConnected && !isAdmin ? `<div style="padding:10px 14px;background:var(--blueBg);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--cyan);display:flex;justify-content:space-between;align-items:center">
+      <span>📡 目前為唯讀模式。如需編輯請登入管理員並設定 GAS URL。</span>
+    </div>` : (!gasConnected && isAdmin ? `<div style="padding:10px 14px;background:var(--amberBg);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--amber);display:flex;justify-content:space-between;align-items:center">
+      <span>⚠️ GAS 未連線（此裝置）。編輯不會同步到雲端。</span>
+      <button class="btn btn-sm btn-pri" onclick="goPage('tools');setTimeout(()=>{activeTool='gas-url';renderTools()},100)">設定 GAS URL</button>
+    </div>` : '');
+    el.innerHTML=`${readOnlyNotice}${isAdmin?'<div style="margin-bottom:16px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-pri" onclick="addDocSection()">+ 新增分類區塊</button></div>':''}
       ${Object.entries(sections).map(([sec,items],si)=>`<div style="margin-bottom:20px">
         <h3 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--textSec)">📄 ${sec}</h3>
         <div class="card">${items.map((doc,di)=>`
@@ -1128,10 +1156,9 @@ async function addDocSection(){
 }
 async function saveDocSec_cloud(){
   const n=document.getElementById('secName').value;if(!n)return;
-  const newDoc = {section:n, code:'', name:'(新增文件)', status:'in-progress', fileUrl:''};
-  cloudData.documents.push(newDoc);
-  if(gasConnected) await gasWrite('documents', cloudData.documents);
-  closeModal('genModal');toast('已新增');renderDocuments();
+  // Don't create placeholder row — just prompt to add first item directly
+  closeModal('genModal');
+  addDocItem_cloud(n);
 }
 function addDocItem_cloud(sec){
   showGenModal('新增文件',`
