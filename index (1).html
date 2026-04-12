@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safety E-System</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<style>
+:root {
+  --bg:#07090f;--surface:#0f1219;--card:#141922;--border:#1e2738;--borderHi:#2a3548;
+  --amber:#f59e0b;--amberBg:rgba(245,158,11,0.12);--red:#ef4444;--redBg:rgba(239,68,68,0.1);
+  --green:#10b981;--greenBg:rgba(16,185,129,0.1);--blue:#3b82f6;--blueBg:rgba(59,130,246,0.1);
+  --purple:#8b5cf6;--cyan:#06b6d4;--text:#e8edf5;--textSec:#8b95a8;--textMut:#5a6478;
+  --font:'DM Sans','Noto Sans TC',sans-serif;--mono:'JetBrains Mono','Fira Code',monospace;
+  --shadow:0 4px 20px rgba(0,0,0,0.5);--radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;-webkit-font-smoothing:antialiased}
+button{cursor:pointer;font-family:var(--font);transition:all .2s}
+button:hover:not(:disabled){filter:brightness(1.15)}
+input:focus,select:focus,textarea:focus{border-color:var(--amber)!important;box-shadow:0 0 0 2px var(--amberBg);outline:none}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+[contenteditable]:empty:before{content:attr(data-placeholder);color:var(--textMut)}
+a{color:var(--amber);text-decoration:none}
+
+/* SIDEBAR */
+.sidebar{width:230px;min-height:100vh;background:linear-gradient(180deg,#0b0e16,#111622);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;z-index:100;flex-shrink:0;transition:width .3s;overflow:hidden}
+.sidebar.collapsed{width:56px}
+.sidebar-logo{padding:18px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10}
+.sidebar.collapsed .sidebar-logo{padding:18px 10px}
+.logo-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.logo-text{overflow:hidden;white-space:nowrap}
+.sidebar.collapsed .logo-text,.sidebar.collapsed .nav-label,.sidebar.collapsed .admin-label{display:none}
+.sidebar nav{flex:1;padding:10px 6px}
+.nav-btn{display:flex;align-items:center;gap:10;width:100%;padding:9px 12px;background:transparent;border:none;border-radius:8px;color:var(--textSec);font-size:12px;font-weight:500;margin-bottom:1px}
+.sidebar.collapsed .nav-btn{padding:9px 13px;justify-content:center}
+.nav-btn.active{background:var(--amberBg);color:var(--amber);font-weight:700}
+.sidebar-footer{padding:10px 6px;border-top:1px solid var(--border)}
+.admin-btn{display:flex;align-items:center;gap:8;width:100%;padding:8px 12px;border:none;border-radius:8px;font-size:11px;font-weight:600}
+.admin-btn.off{background:var(--border);color:var(--textSec)}
+.admin-btn.on{background:var(--greenBg);color:var(--green)}
+.toggle-btn{display:flex;align-items:center;justify-content:center;width:100%;padding:6px;margin-top:4px;background:transparent;border:none;color:var(--textMut);border-radius:6px}
+
+/* MAIN */
+.main{flex:1;min-width:0;padding:22px 26px;max-width:1440px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.header h1{font-size:20px;font-weight:800;letter-spacing:-.3px}
+.header-sub{margin-top:3px;font-size:11px;color:var(--textMut)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.3px}
+.page{animation:fi .3s ease}
+.page[hidden]{display:none!important}
+
+/* CARDS & STATS */
+.grid{display:grid;gap:14px}.grid-4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.grid-3{grid-template-columns:repeat(3,1fr)}.grid-2{grid-template-columns:1fr 1fr}
+.grid-6{grid-template-columns:repeat(6,1fr)}.grid-5{grid-template-columns:repeat(5,1fr)}
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+.card-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)}
+.card-head h3{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
+.card-body{padding:10px 16px;max-height:320px;overflow:auto}
+.stat-card{display:flex;align-items:center;gap:14px;padding:16px 18px}
+.stat-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
+.stat-label{font-size:10px;color:var(--textMut);font-weight:600;letter-spacing:.5px;margin-bottom:2px;text-transform:uppercase}
+.stat-value{font-size:20px;font-weight:800;font-family:var(--mono)}
+.stat-sub{font-size:10px;color:var(--textSec);margin-top:1px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;font-weight:600;border-radius:8px;font-size:13px;padding:8px 16px}
+.btn-sm{font-size:12px;padding:5px 10px}
+.btn-pri{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000}
+.btn-def{background:var(--border);color:var(--text)}
+.btn-ghost{background:transparent;color:var(--textSec)}
+.btn-danger{background:var(--redBg);color:var(--red)}
+.btn-success{background:var(--greenBg);color:var(--green)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* INPUTS */
+.inp,.sel,.txa{width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:var(--font);outline:none}
+.txa{min-height:70px;resize:vertical}
+.field{margin-bottom:12px}
+.field label{display:block;margin-bottom:5px;font-size:11px;font-weight:600;color:var(--textSec);letter-spacing:.5px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(6px)}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border-radius:16px;border:1px solid var(--border);width:92%;max-width:540px;max-height:88vh;overflow:auto;box-shadow:var(--shadow);animation:fi .25s ease}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border)}
+.modal-head h3{font-size:15px;font-weight:700}
+.modal-body{padding:20px}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{padding:10px 12px;text-align:left;color:var(--textMut);font-weight:600;font-size:10px;white-space:nowrap;border-bottom:2px solid var(--border)}
+.tbl td{padding:8px 12px;border-bottom:1px solid rgba(30,39,56,.3)}
+.tbl tr:hover{background:rgba(255,255,255,.02)}
+
+/* RICH EDITOR */
+.rich-editor{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.rich-toolbar{display:flex;gap:2px;padding:4px 8px;background:var(--bg);border-bottom:1px solid var(--border)}
+.rich-toolbar button{background:none;border:none;color:var(--textSec);padding:2px 6px;border-radius:4px;font-size:13px}
+.rich-content{padding:9px 12px;min-height:60px;color:var(--text);font-size:13px;outline:none;background:var(--bg)}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 20px;margin-bottom:20px}
+.filter-bar label{font-size:11px;color:var(--textSec)}
+.filter-bar input[type=date]{width:150px;padding:6px 10px;font-size:12px}
+.pill-btn{padding:6px 16px;border-radius:20px;border:none;font-size:12px;font-weight:600;font-family:var(--font)}
+
+/* SCHEDULE */
+.sched-table{border-collapse:collapse;font-size:11px;min-width:800px}
+.sched-table th{padding:5px 3px;text-align:center;font-size:9px;font-weight:600;color:var(--textMut)}
+.sched-table td{padding:1px;text-align:center}
+.sched-cell{width:24px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:8px;font-weight:700;color:white}
+.sched-select{width:24px;height:20px;border:none;border-radius:3px;font-size:8px;font-weight:700;color:white;cursor:pointer;text-align:center;padding:0}
+.sched-name{padding:5px 10px!important;font-weight:600;font-size:11px;text-align:left!important;position:sticky;left:0;background:var(--card);z-index:1}
+.sched-name-head{min-width:75px;text-align:left!important;position:sticky;left:0;background:var(--card);z-index:2}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;z-index:99999;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:var(--shadow);animation:fi .25s ease;display:none}
+.toast.show{display:block}
+.toast.success{background:#064e3b;border:1px solid rgba(16,185,129,.2)}
+.toast.error{background:#7f1d1d;border:1px solid rgba(239,68,68,.2)}
+
+/* GAUGE */
+.gauge-wrap{text-align:center}
+.gauge-label{font-size:12px;font-weight:700;margin-top:4px}
+
+/* Responsive */
+@media(max-width:1200px){.grid-6{grid-template-columns:repeat(3,1fr)}.grid-5{grid-template-columns:repeat(3,1fr)}.grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){.sidebar{position:fixed;z-index:200}.sidebar.collapsed{width:0;border:none}.main{padding:14px}.grid-2,.grid-3{grid-template-columns:1fr}.grid-6,.grid-5{grid-template-columns:repeat(2,1fr)}.header{flex-direction:column;align-items:flex-start;gap:8px}}
+</style>
+</head>
+<body>
+
+<!-- ═══════ SIDEBAR ═══════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🛡️</div>
+    <div class="logo-text">
+      <div style="font-size:13px;font-weight:800;color:var(--amber)">Safety</div>
+      <div style="font-size:10px;color:var(--textMut)">E-System</div>
+    </div>
+  </div>
+  <nav id="navContainer"></nav>
+  <div class="sidebar-footer">
+    <button class="admin-btn off" id="adminBtn" onclick="toggleAdmin()">🔒 <span class="admin-label">管理員登入</span></button>
+    <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+  </div>
+</aside>
+
+<!-- ═══════ MAIN ═══════ -->
+<div class="main">
+  <header class="header">
+    <div>
+      <h1 id="pageTitle">首頁 Home</h1>
+      <p class="header-sub">NMDC Energy — Tongxiao Power Plant Phase II · <span id="todayDate"></span> <span id="sheetStatus" style="margin-left:8px"></span></p>
+    </div>
+    <div id="adminBadge" style="display:none"><span class="badge" style="color:var(--green);background:var(--greenBg)">ADMIN</span></div>
+  </header>
+
+  <!-- PAGES -->
+  <div class="page" id="page-home"></div>
+  <div class="page" id="page-dashboard" hidden></div>
+  <div class="page" id="page-deficiency" hidden></div>
+  <div class="page" id="page-documents" hidden></div>
+  <div class="page" id="page-tools" hidden></div>
+  <div class="page" id="page-tracking" hidden></div>
+  <div class="page" id="page-schedule" hidden></div>
+</div>
+
+<!-- ═══════ LOGIN MODAL ═══════ -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal" style="max-width:360px" onclick="event.stopPropagation()">
+    <div class="modal-head"><h3>🔐 管理員登入</h3><button class="btn-ghost" onclick="closeModal('loginModal')">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--textSec);margin-bottom:14px">登入以啟用編輯功能</p>
+      <div class="field"><label>帳號</label><input class="inp" id="loginUser" placeholder="帳號"></div>
+      <div class="field"><label>密碼</label><input class="inp" id="loginPass" type="password" placeholder="密碼" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <p id="loginErr" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none"></p>
+      <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="doLogin()">🔓 登入</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ GENERIC MODAL ═══════ -->
+<div class="modal-overlay" id="genModal" onclick="closeModal('genModal')">
+  <div class="modal" id="genModalBox" onclick="event.stopPropagation()">
+    <div class="modal-head"><h3 id="genModalTitle"></h3><button class="btn-ghost" onclick="closeModal('genModal')">✕</button></div>
+    <div class="modal-body" id="genModalBody"></div>
+  </div>
+</div>
+
+<!-- ═══════ TOAST ═══════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE & CONFIG
+// ═══════════════════════════════════════════════════════════════
+const SHEET_ID = "19KlNuUTQO4_qzP6mYEAxh97La-RjjcvpyMC5c8K7Pj8";
+const TEAM = ["Jeffrey","陳工程師","李主管","王工程師","張專員","林安全師","Grace"];
+const CONTRACTORS = ["海義 HiE","美綺 Magitech","高虎 GAC","兆濰/茂富","天力 Tianli"];
+const LOCATIONS = ["台中 Taichung","通霄 Tongxiao","天力 Tianli","離岸 Offshore"];
+const DEF_CATS = ["高處作業","吊掛作業","電氣安全","侷限空間","開挖作業","火災爆炸","機具安全","個人防護","環境整潔","交通管理","工作許可","施工架","其他"];
+const PAL = ["#f59e0b","#3b82f6","#10b981","#ef4444","#8b5cf6","#ec4899","#06b6d4","#84cc16","#f97316","#64748b"];
+const SEV_KW = {critical:["死亡","墜落","倒塌","爆炸","觸電","collapse","electrocution"],major:["夾傷","截斷","骨折","缺少護欄","未繫安全帶","重大","嚴重"],minor:["未戴","未穿","標示","整潔","PPE","反光背心","安全帽"]};
+const SEV_LABEL = {critical:"🔴 嚴重",major:"🟠 重大",minor:"🟡 輕微"};
+const SEV_COLOR = {critical:"var(--red)",major:"#f97316",minor:"var(--amber)"};
+const STATUS_COLOR = {open:"var(--red)","in-progress":"var(--blue)",closed:"var(--green)"};
+const STATUS_LABEL = {open:"待改善","in-progress":"改善中",closed:"已結案"};
+const SCHED_COLOR = {R:"#1d4ed8",H:"#dc2626","台":"#f59e0b","霄":"#10b981"};
+const SCHED_LABEL = {R:"上班",H:"休假","台":"台中","霄":"通霄"};
+
+let isAdmin = false;
+let currentPage = "home";
+let state = {
+  ann: [{id:1,date:"2026-04-12",content:"本週五進行全線安全巡檢，請各承包商配合準備。",priority:"high"},{id:2,date:"2026-04-10",content:"新版PTW申請流程已更新，請至文件區下載。",priority:"medium"}],
+  trk: [{id:1,item:"高虎 吊掛作業SOP更新",assignees:["陳工程師","李主管"],deadline:"2026-04-15",priority:"high",status:"pending",note:""},{id:2,item:"海義 施工架自主檢查紀錄補齊",assignees:["王工程師"],deadline:"2026-04-20",priority:"medium",status:"in-progress",note:""},{id:3,item:"茂富 LOTO教育訓練執行",assignees:["張專員"],deadline:"2026-04-18",priority:"low",status:"done",note:"已於4/5完成"}],
+  def: [
+    {id:1,no:"TPC-2026-001",date:"2026-04-01",location:"通霄",contractor:"海義 HiE",category:"高處作業",description:"施工架護欄缺失，人員有墜落風險",status:"open",dueDate:"2026-04-10",response:""},
+    {id:2,no:"TPC-2026-002",date:"2026-04-03",location:"台中",contractor:"高虎 GAC",category:"吊掛作業",description:"吊掛信號手未配戴反光背心",status:"closed",dueDate:"2026-04-08",response:"已立即改善並加強宣導"},
+    {id:3,no:"TPC-2026-003",date:"2026-04-07",location:"通霄",contractor:"美綺 Magitech",category:"電氣安全",description:"臨時用電配線未固定，有觸電風險",status:"open",dueDate:"2026-04-14",response:""},
+    {id:4,no:"TPC-2026-004",date:"2026-04-09",location:"通霄",contractor:"兆濰/茂富",category:"個人防護",description:"未穿著安全鞋進入工區",status:"open",dueDate:"2026-04-16",response:""}
+  ],
+  docs: [
+    {sec:"安全管理程序 Safety Procedures",items:[{code:"NMDC-HSE-001",name:"HSE Management Plan",status:"complete"},{code:"NMDC-HSE-002",name:"PTW Procedure",status:"complete"},{code:"NMDC-HSE-003",name:"LOTO Procedure",status:"complete"},{code:"NMDC-HSE-004",name:"Lifting & Rigging Procedure",status:"in-progress"},{code:"NMDC-HSE-005",name:"Confined Space Entry",status:"complete"},{code:"NMDC-HSE-006",name:"Hot Work Procedure",status:"complete"}]},
+    {sec:"ISP 個別安全施工計畫 Individual Safety Procedure",items:[{code:"ISP-001",name:"海義 管線焊接 ISP",status:"complete"},{code:"ISP-002",name:"高虎 吊掛作業 ISP",status:"in-progress"},{code:"ISP-003",name:"美綺 電氣施工 ISP",status:"complete"},{code:"ISP-004",name:"天力 風機安裝 ISP",status:"in-progress"}]},
+    {sec:"風險評估 Risk Assessment",items:[{code:"NMDC-RA-001",name:"Submarine Pipeline Installation RA",status:"complete"},{code:"NMDC-RA-002",name:"JSG High Pressure Grouting RA",status:"complete"},{code:"NMDC-RA-003",name:"Marine Dredging RA",status:"in-progress"}]},
+    {sec:"教育訓練 Training Materials",items:[{code:"NMDC-TR-001",name:"新進人員安全教育",status:"complete"},{code:"NMDC-TR-002",name:"LOTO Training (中/英/泰)",status:"complete"},{code:"NMDC-TR-003",name:"手部安全 Hand Safety",status:"complete"}]},
+    {sec:"表格範本 Forms & Templates",items:[{code:"NMDC-FM-001",name:"BSA 行為安全觀察表",status:"complete"},{code:"NMDC-FM-002",name:"TPC 缺失改善單",status:"complete"},{code:"NMDC-FM-003",name:"TBM-KY 報告表",status:"complete"}]}
+  ],
+  tools: [{id:"tpc-def",name:"TPC 缺失單新增",desc:"新增TPC安全缺失改善單",icon:"⚠️",color:"var(--red)",type:"builtin"},{id:"sling-calc",name:"吊掛張力計算器",desc:"Sling Tension Calculator",icon:"🔧",color:"var(--purple)",type:"builtin"},{id:"gas-url",name:"GAS URL 設定",desc:"連接 Google Apps Script",icon:"🔗",color:"var(--textSec)",type:"builtin"}],
+  schedule: {month:"2026-04",people:[]},
+};
+// Initialize schedule with team
+state.schedule.people = TEAM.map(p => ({name:p, days:Array.from({length:30},(_,i)=>{const wd=new Date(2026,3,i+1).getDay();return wd===0||wd===6?"H":"R"})}));
+// Auto severity for deficiencies
+state.def.forEach(d => d.severity = autoSeverity(d.description, d.category));
+
+const dash = {
+  summary:{totalSOC:186,totalNCR:24,totalDefects:210,positives:45,closureRate:87.5,manpower:342,safeHours:285600,trir:0.35,ltir:0,far:0,nearMissRate:2.1,severityRate:0,penaltyAmount:150000,conditionOpen:12,conditionClosed:85,actionOpen:5,actionClosed:63},
+  ncrClosure:87.5,ptwCompliance:96.2,tbmRate:98.5,
+  socByCategory:[{name:"環境整潔",value:42},{name:"吊掛作業",value:28},{name:"個人防護",value:35},{name:"高處作業",value:22},{name:"電氣安全",value:18},{name:"機具安全",value:15},{name:"交通管理",value:12},{name:"其他",value:14}],
+  monthly:[{m:"2025/10",soc:24,ncr:3},{m:"2025/11",soc:28,ncr:5},{m:"2025/12",soc:32,ncr:4},{m:"2026/01",soc:30,ncr:6},{m:"2026/02",soc:25,ncr:3},{m:"2026/03",soc:38,ncr:4},{m:"2026/04",soc:9,ncr:1}],
+  contractorRank:[{name:"天力 Tianli",soc:31,ncr:1,cond:12,act:5,closed:16,score:90},{name:"美綺 Magitech",soc:32,ncr:4,cond:18,act:10,closed:25,score:85},{name:"海義 HiE",soc:45,ncr:8,cond:28,act:15,closed:36,score:82},{name:"高虎 GAC",soc:38,ncr:6,cond:22,act:12,closed:27,score:78},{name:"兆濰/茂富",soc:40,ncr:5,cond:25,act:13,closed:28,score:75}],
+  manpower:[{name:"海義 HiE",avg:15,max:22,hours:28800},{name:"高虎 GAC",avg:12,max:18,hours:23040},{name:"美綺 Magitech",avg:8,max:14,hours:15360},{name:"兆濰/茂富",avg:10,max:16,hours:19200},{name:"天力 Tianli",avg:7,max:12,hours:13440}]
+};
+
+const NAV = [
+  {id:"home",label:"首頁 Home",icon:"🏠"},{id:"dashboard",label:"儀表板 Dashboard",icon:"📊"},
+  {id:"deficiency",label:"缺失管理 Deficiency",icon:"⚠️"},{id:"documents",label:"文件管理 Documents",icon:"📄"},
+  {id:"tools",label:"工具 Tools",icon:"🔧"},{id:"tracking",label:"追蹤事項 Tracking",icon:"📋"},
+  {id:"schedule",label:"班表 Schedule",icon:"📅"}
+];
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function autoSeverity(desc,cat){
+  const s=(desc+" "+cat).toLowerCase();
+  if(SEV_KW.critical.some(k=>s.includes(k)))return"critical";
+  if(SEV_KW.major.some(k=>s.includes(k)))return"major";
+  if(SEV_KW.minor.some(k=>s.includes(k)))return"minor";
+  return"major";
+}
+function badge(text,color){return `<span class="badge" style="color:${color};background:${color}20">${text}</span>`}
+function saveState(){try{localStorage.setItem('safety_es',JSON.stringify(state))}catch{}}
+function loadState(){try{const s=localStorage.getItem('safety_es');if(s){const d=JSON.parse(s);Object.assign(state,d);state.def.forEach(x=>{if(!x.severity)x.severity=autoSeverity(x.description,x.category)})}}catch{}}
+function toast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.classList.remove('show'),2800)}
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function showGenModal(title,html,w){const m=document.getElementById('genModalBox');m.style.maxWidth=(w||540)+'px';document.getElementById('genModalTitle').textContent=title;document.getElementById('genModalBody').innerHTML=html;openModal('genModal')}
+function today(){return new Date().toISOString().slice(0,10)}
+function isOverdue(d){return d.status!=='closed'&&new Date(d.dueDate)<new Date()}
+function optionsHtml(arr,blank){return (blank?'<option value="">--選擇--</option>':'')+arr.map(a=>`<option value="${a}">${a}</option>`).join('')}
+
+// ═══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+function buildNav(){
+  document.getElementById('navContainer').innerHTML=NAV.map(n=>
+    `<button class="nav-btn${n.id===currentPage?' active':''}" onclick="goPage('${n.id}')">${n.icon} <span class="nav-label">${n.label}</span></button>`
+  ).join('');
+}
+function goPage(id){
+  currentPage=id;
+  NAV.forEach(n=>{const el=document.getElementById('page-'+n.id);if(el)el.hidden=n.id!==id});
+  document.getElementById('pageTitle').textContent=NAV.find(n=>n.id===id)?.label||'';
+  buildNav();
+  renderPage(id);
+}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('collapsed')}
+function toggleAdmin(){
+  if(isAdmin){isAdmin=false;updateAdminUI();toast('已登出');renderPage(currentPage);return}
+  openModal('loginModal');
+}
+function doLogin(){
+  const u=document.getElementById('loginUser').value,p=document.getElementById('loginPass').value;
+  if(u==='123'&&p==='123'){isAdmin=true;closeModal('loginModal');updateAdminUI();toast('管理員模式已啟用 ✓');renderPage(currentPage)}
+  else{const e=document.getElementById('loginErr');e.textContent='帳號或密碼錯誤';e.style.display='block'}
+}
+function updateAdminUI(){
+  const btn=document.getElementById('adminBtn');
+  btn.className='admin-btn '+(isAdmin?'on':'off');
+  btn.innerHTML=isAdmin?'🔓 <span class="admin-label">管理員 ON</span>':'🔒 <span class="admin-label">管理員登入</span>';
+  document.getElementById('adminBadge').style.display=isAdmin?'block':'none';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER PAGES
+// ═══════════════════════════════════════════════════════════════
+function renderPage(id){
+  switch(id){
+    case'home':renderHome();break;case'dashboard':renderDashboard();break;
+    case'deficiency':renderDeficiency();break;case'documents':renderDocuments();break;
+    case'tools':renderTools();break;case'tracking':renderTracking();break;
+    case'schedule':renderSchedule();break;
+  }
+}
+
+// ─── HOME ────────────────────────────────────────────────────
+function renderHome(){
+  const s=dash.summary;
+  const openDefs=state.def.filter(d=>d.status!=='closed').length;
+  const overdue=state.def.filter(d=>isOverdue(d)).length;
+  const pendingTrk=state.trk.filter(t=>t.status!=='done').length;
+  const el=document.getElementById('page-home');
+  el.innerHTML=`
+    <div class="grid grid-4" style="margin-bottom:22px">
+      ${statCard('⚠️','待處理缺失',openDefs,`${overdue} 逾期`,'var(--red)')}
+      ${statCard('📋','追蹤事項',pendingTrk,'','var(--amber)')}
+      ${statCard('👥','現場人力',s.manpower,'','var(--blue)')}
+      ${statCard('✅','安全工時',s.safeHours.toLocaleString(),'','var(--green)')}
+    </div>
+    <div class="grid grid-4" style="margin-bottom:22px">
+      ${gaugeCard('NCR結案率',dash.ncrClosure,100,dash.ncrClosure>=95?'var(--green)':dash.ncrClosure>=80?'var(--amber)':'var(--red)')}
+      ${gaugeCard('PTW合規率',dash.ptwCompliance,100,'var(--green)')}
+      ${gaugeCard('TBM執行率',dash.tbmRate,100,'var(--blue)')}
+      ${gaugeCard('TRIR',dash.summary.trir,2,'var(--green)')}
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><h3>🔔 公告欄 Announcements</h3>${isAdmin?'<button class="btn btn-pri btn-sm" onclick="addAnnouncement()">+ 新增</button>':''}</div>
+        <div class="card-body">${state.ann.map(a=>`
+          <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              ${badge(a.priority==='high'?'🔴 重要':'🟡 一般',a.priority==='high'?'var(--red)':'var(--amber)')}
+              <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--textMut)">${a.date}</span>${isAdmin?`<button class="btn-ghost btn-sm" onclick="delAnn(${a.id})">🗑</button>`:''}</div>
+            </div>
+            <div style="font-size:12px;line-height:1.6;color:var(--textSec)">${a.content}</div>
+          </div>`).join('')}</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>📋 追蹤事項 Tracking</h3><div style="display:flex;gap:6px">${isAdmin?'<button class="btn btn-pri btn-sm" onclick="addTracking()">+ 新增</button>':''}<button class="btn btn-ghost btn-sm" onclick="goPage('tracking')">全部→</button></div></div>
+        <div class="card-body">${state.trk.slice(0,5).map(t=>`
+          <div style="padding:8px 0;border-bottom:1px solid rgba(30,39,56,.1);display:flex;justify-content:space-between;align-items:center">
+            <div><div style="font-size:12px;font-weight:600;margin-bottom:2px">${t.item}</div><div style="font-size:10px;color:var(--textMut)">${(t.assignees||[]).join(', ')} · ${t.deadline}</div></div>
+            ${badge(t.status==='done'?'✅ 完成':t.status==='in-progress'?'🔄 進行中':'⏳ 待辦',t.status==='done'?'var(--green)':t.status==='in-progress'?'var(--blue)':'var(--amber)')}
+          </div>`).join('')}</div>
+      </div>
+    </div>`;
+}
+
+function statCard(icon,label,value,sub,color){
+  return `<div class="card stat-card"><div class="stat-icon" style="background:${color}15;color:${color}">${icon}</div><div><div class="stat-label">${label}</div><div class="stat-value">${value}</div>${sub?`<div class="stat-sub">${sub}</div>`:''}</div></div>`;
+}
+function gaugeCard(label,value,max,color){
+  const pct=Math.min(value/max,1);const r=40;const c=2*Math.PI*r;const d=pct*c*.75;
+  return `<div class="card" style="padding:14px;text-align:center"><svg width="100" height="70" viewBox="0 0 100 70">
+    <circle cx="50" cy="55" r="${r}" fill="none" stroke="var(--border)" stroke-width="7" stroke-dasharray="${c*.75} ${c*.25}" stroke-linecap="round" transform="rotate(135 50 55)"/>
+    <circle cx="50" cy="55" r="${r}" fill="none" stroke="${color}" stroke-width="7" stroke-dasharray="${d} ${c}" stroke-linecap="round" transform="rotate(135 50 55)"/>
+    <text x="50" y="48" text-anchor="middle" fill="var(--text)" style="font-size:16px;font-weight:700;font-family:var(--mono)">${max>10?value.toFixed(1):value.toFixed(2)}</text>
+    <text x="50" y="62" text-anchor="middle" fill="var(--textMut)" style="font-size:8px">${max>10?'%':''}</text>
+  </svg><div class="gauge-label">${label}</div></div>`;
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────
+let trendChart=null,catChart=null;
+function renderDashboard(){
+  const s=dash.summary;const el=document.getElementById('page-dashboard');
+  el.innerHTML=`
+    <div class="card filter-bar" style="margin-bottom:20px">
+      <span style="font-size:12px;font-weight:700;color:var(--amber)">📊 篩選條件</span>
+      <div style="display:flex;align-items:center;gap:8px"><label>起始</label><input type="date" class="inp" value="2025-04-01" style="width:150px;padding:6px 10px;font-size:12px"></div>
+      <div style="display:flex;align-items:center;gap:8px"><label>結束</label><input type="date" class="inp" value="2026-04-12" style="width:150px;padding:6px 10px;font-size:12px"></div>
+      ${badge('SOC: '+s.totalSOC+' | NCR: '+s.totalNCR,'var(--blue)')}
+    </div>
+    <div class="grid grid-3" style="margin-bottom:22px">
+      ${[{l:"NCR結案率",v:dash.ncrClosure,t:[80,95]},{l:"PTW合規率",v:dash.ptwCompliance,t:[80,95]},{l:"TBM執行率",v:dash.tbmRate,t:[90,98]}].map(g=>`
+        <div class="card" style="padding:20px;text-align:center">${gaugeCard(g.l,g.v,100,g.v>=g.t[1]?'var(--green)':g.v>=g.t[0]?'var(--amber)':'var(--red)').replace(/<\/?div[^>]*>/g,'')}
+        ${badge(g.v>=g.t[1]?'✅ 優秀':g.v>=g.t[0]?'⚠️ 注意':'🔴 需改善',g.v>=g.t[1]?'var(--green)':g.v>=g.t[0]?'var(--amber)':'var(--red)')}</div>`).join('')}
+    </div>
+    <div class="card" style="margin-bottom:22px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#0f172a,#1e3a8a);color:white;padding:12px 20px;font-size:14px;font-weight:700">📉 落後指標 Lagging Indicators</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);padding:12px 20px;gap:20px">
+        <div style="display:flex;align-items:center;gap:12px"><span style="font-size:28px">👷</span><div><div style="font-size:10px;color:var(--textMut);font-weight:600">累計總人次</div><div style="font-size:22px;font-weight:800;color:var(--blue);font-family:var(--mono)">${(s.safeHours/8).toLocaleString()}</div></div></div>
+        <div style="display:flex;align-items:center;gap:12px"><span style="font-size:28px">⏱️</span><div><div style="font-size:10px;color:var(--textMut);font-weight:600">累計總工時</div><div style="font-size:22px;font-weight:800;color:var(--blue);font-family:var(--mono)">${s.safeHours.toLocaleString()}</div></div></div>
+      </div>
+      <div class="grid grid-5" style="gap:0">
+        ${[{l:"TRIR",v:s.trir,c:"var(--blue)"},{l:"LTIR",v:s.ltir,c:"var(--red)"},{l:"Severity",v:s.severityRate,c:"var(--amber)"},{l:"Near Miss",v:s.nearMissRate,c:"var(--purple)"},{l:"FAR",v:s.far,c:"var(--cyan)"}].map((x,i)=>`
+          <div style="padding:20px 12px;text-align:center;border-right:${i<4?'1px solid var(--border)':'none'};border-top:3px solid ${x.c}">
+            <div style="font-size:12px;font-weight:700;margin-bottom:2px">${x.l}</div>
+            <div style="font-size:28px;font-weight:900;color:${x.c};font-family:var(--mono)">${x.v.toFixed(2)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="grid grid-6" style="gap:0;margin-bottom:22px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">
+      ${[{l:"SOC缺失",v:s.totalSOC,c:"var(--blue)"},{l:"TPC缺失",v:s.totalNCR,c:"var(--purple)"},{l:"罰款",v:'NT$'+(s.penaltyAmount/1000).toFixed(0)+'K',c:"var(--red)"},{l:"總缺失",v:s.totalDefects,c:"var(--red)"},{l:"優點",v:s.positives,c:"var(--green)"},{l:"結案率",v:s.closureRate+'%',c:"var(--cyan)"}].map((x,i)=>`
+        <div style="padding:18px 10px;text-align:center;border-right:${i<5?'1px solid var(--border)':'none'}">
+          <div style="font-size:10px;color:var(--textMut);font-weight:600;margin-bottom:6px">${x.l}</div>
+          <div style="font-size:20px;font-weight:800;color:${x.c};font-family:var(--mono)">${x.v}</div>
+        </div>`).join('')}
+    </div>
+    <div class="grid grid-2" style="margin-bottom:22px">
+      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢</div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
+      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類</div><div style="height:220px"><canvas id="catCanvas"></canvas></div></div>
+    </div>
+    <div class="card" style="padding:18px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px">🏆 承包商績效</div>
+      <table class="tbl"><thead><tr><th>排名</th><th>承包商</th><th>評分</th><th>條件</th><th>行為</th><th>結案</th><th>結案率</th></tr></thead>
+      <tbody>${dash.contractorRank.sort((a,b)=>b.score-a.score).map((c,i)=>{const t=c.cond+c.act;const r=t>0?((c.closed/t)*100).toFixed(0):0;return`
+        <tr><td style="font-weight:700;color:${i===0?'var(--amber)':'var(--text)'}">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</td>
+        <td style="font-weight:600">${c.name}</td>
+        <td><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:5px;background:var(--border);border-radius:3px;max-width:80px"><div style="height:100%;border-radius:3px;width:${c.score}%;background:${c.score>=85?'var(--green)':c.score>=70?'var(--amber)':'var(--red)'}"></div></div><span style="font-family:var(--mono);font-weight:600;font-size:11px">${c.score}</span></div></td>
+        <td style="font-family:var(--mono)">${c.cond}</td><td style="font-family:var(--mono)">${c.act}</td><td style="font-family:var(--mono)">${c.closed}</td>
+        <td>${badge(r+'%',r>=80?'var(--green)':r>=60?'var(--amber)':'var(--red)')}</td></tr>`}).join('')}</tbody></table>
+    </div>`;
+  // Charts
+  setTimeout(()=>{
+    if(trendChart)trendChart.destroy();if(catChart)catChart.destroy();
+    const tc=document.getElementById('trendCanvas');const cc=document.getElementById('catCanvas');
+    if(tc)trendChart=new Chart(tc,{type:'line',data:{labels:dash.monthly.map(m=>m.m),datasets:[{label:'SOC',data:dash.monthly.map(m=>m.soc),borderColor:'#f59e0b',borderWidth:2,tension:.4,pointRadius:2,fill:false},{label:'NCR',data:dash.monthly.map(m=>m.ncr),borderColor:'#ef4444',borderWidth:2,tension:.4,pointRadius:2,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b95a8',font:{size:10}}}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}}}}});
+    if(cc)catChart=new Chart(cc,{type:'bar',data:{labels:dash.socByCategory.map(c=>c.name),datasets:[{data:dash.socByCategory.map(c=>c.value),backgroundColor:PAL,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#8b95a8',font:{size:10}},grid:{display:false}}}}});
+  },100);
+}
+
+// ─── DEFICIENCY ──────────────────────────────────────────────
+let defShowClosed=false;
+function renderDeficiency(){
+  const open=state.def.filter(d=>d.status!=='closed'),closed=state.def.filter(d=>d.status==='closed');
+  const list=defShowClosed?closed:open;
+  const el=document.getElementById('page-deficiency');
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;gap:6px">
+        <button class="pill-btn" style="background:${!defShowClosed?'var(--amberBg)':'var(--card)'};color:${!defShowClosed?'var(--amber)':'var(--textSec)'}" onclick="defShowClosed=false;renderDeficiency()">待處理 (${open.length})</button>
+        <button class="pill-btn" style="background:${defShowClosed?'var(--greenBg)':'var(--card)'};color:${defShowClosed?'var(--green)':'var(--textSec)'}" onclick="defShowClosed=true;renderDeficiency()">已結案 (${closed.length})</button>
+      </div>
+      ${isAdmin?'<button class="btn btn-pri" onclick="addDeficiency()">+ 新增缺失單</button>':''}
+    </div>
+    <div class="card"><div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>編號</th><th>日期</th><th>地點</th><th>承包商</th><th>類別</th><th>說明</th><th>嚴重度</th><th>狀態</th><th>截止日</th><th></th></tr></thead>
+      <tbody>${list.map(d=>{const od=isOverdue(d);return`
+        <tr style="background:${od?'rgba(239,68,68,.05)':'transparent'}">
+          <td style="font-family:var(--mono);font-weight:600;font-size:11px;color:var(--amber)">${d.no}</td>
+          <td style="white-space:nowrap">${d.date}</td><td>${d.location}</td>
+          <td style="font-weight:600">${d.contractor}</td><td>${d.category}</td>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.description}</td>
+          <td>${badge(SEV_LABEL[d.severity],SEV_COLOR[d.severity])}</td>
+          <td>${badge(STATUS_LABEL[d.status]+(od?' ⚠️':''),STATUS_COLOR[d.status])}</td>
+          <td style="white-space:nowrap;color:${od?'var(--red)':'var(--textSec)'}">${d.dueDate}</td>
+          <td><button class="btn btn-ghost btn-sm" onclick="viewDef(${d.id})">👁 詳情</button></td>
+        </tr>`}).join('')}
+      ${list.length===0?`<tr><td colspan="10" style="text-align:center;padding:36px;color:var(--textMut)">${defShowClosed?'無已結案資料':'目前無待處理缺失 🎉'}</td></tr>`:''}</tbody>
+    </table></div></div>`;
+}
+
+// ─── DOCUMENTS ───────────────────────────────────────────────
+function renderDocuments(){
+  const el=document.getElementById('page-documents');
+  el.innerHTML=`${isAdmin?'<div style="margin-bottom:16px;display:flex;justify-content:flex-end"><button class="btn btn-pri" onclick="addDocSection()">+ 新增分類區塊</button></div>':''}
+    ${state.docs.map((sec,si)=>`<div style="margin-bottom:20px">
+      <h3 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--textSec)">📄 ${sec.sec}</h3>
+      <div class="card">${sec.items.map((doc,di)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:${di<sec.items.length-1?'1px solid rgba(30,39,56,.3)':'none'}">
+          <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;min-width:90px">${doc.code}</span><span style="font-size:12px">${doc.name}</span></div>
+          <div style="display:flex;align-items:center;gap:8px">${badge(doc.status==='complete'?'✅ 完整':'🔄 更新中',doc.status==='complete'?'var(--green)':'var(--amber)')}${isAdmin?`<button class="btn-ghost btn-sm" onclick="delDoc(${si},${di})">🗑</button>`:''}</div>
+        </div>`).join('')}
+        ${isAdmin?`<div style="padding:8px 16px;border-top:1px solid rgba(30,39,56,.3)"><button class="btn btn-ghost btn-sm" onclick="addDocItem(${si})">+ 新增文件</button></div>`:''}</div>
+    </div>`).join('')}`;
+}
+
+// ─── TOOLS ───────────────────────────────────────────────────
+let activeTool=null;
+function renderTools(){
+  const el=document.getElementById('page-tools');
+  if(activeTool==='tpc-def'){el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
+    <div class="card" style="padding:22px;margin-top:14px"><h3 style="margin-bottom:16px;font-size:15px;font-weight:700">⚠️ TPC缺失單新增</h3><div id="defFormArea"></div></div>`;
+    setTimeout(()=>renderDefForm('defFormArea'),0);return}
+  if(activeTool==='sling-calc'){el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
+    <div class="card" style="padding:22px;margin-top:14px"><h3 style="margin-bottom:16px;font-size:15px;font-weight:700">🔧 吊掛張力計算器</h3>
+    <div class="grid grid-3" style="margin-bottom:16px">
+      <div class="field"><label>重量(kg)</label><input class="inp" type="number" id="sLoad" value="5000" oninput="calcSling()"></div>
+      <div class="field"><label>夾角(°)</label><input class="inp" type="number" id="sAngle" value="60" min="0" max="180" oninput="calcSling()"></div>
+      <div class="field"><label>吊索數</label><select class="sel" id="sLegs" onchange="calcSling()"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
+    </div><div id="slingResult" class="grid grid-3"></div><div id="slingWarn"></div></div>`;
+    setTimeout(calcSling,0);return}
+  if(activeTool==='gas-url'){el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
+    <div class="card" style="padding:22px;margin-top:14px;max-width:550px"><h3 style="margin-bottom:6px;font-size:15px;font-weight:700">🔗 GAS URL 設定</h3>
+    <p style="font-size:11px;color:var(--textMut);margin-bottom:14px">連接Google Apps Script</p>
+    <div class="field"><label>URL</label><input class="inp" id="gasUrlInp" placeholder="https://script.google.com/macros/s/..."></div>
+    <button class="btn btn-pri" onclick="localStorage.setItem('gasUrl',document.getElementById('gasUrlInp').value);toast('已儲存')">儲存</button></div>`;return}
+  // custom tool
+  const ct=state.tools.find(t=>t.id===activeTool&&t.type==='custom');
+  if(ct){el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
+    <div class="card" style="margin-top:14px;overflow:hidden"><div style="padding:12px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px">${ct.name}</div>
+    ${ct.htmlContent?`<iframe srcdoc="${ct.htmlContent.replace(/"/g,'&quot;')}" style="width:100%;height:600px;border:none" sandbox="allow-scripts allow-forms"></iframe>`:'<div style="padding:40px;text-align:center;color:var(--textMut)">尚未上傳HTML</div>'}</div>`;return}
+
+  el.innerHTML=`${isAdmin?'<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn btn-pri" onclick="addTool()">+ 新增工具</button></div>':''}
+    <div class="grid grid-3">${state.tools.map(t=>`
+      <div class="card" style="padding:18px;cursor:pointer;position:relative" onclick="activeTool='${t.id}';renderTools()">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <div style="width:42px;height:42px;border-radius:10px;background:${t.color||'var(--amber)'}15;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${t.icon||'🔧'}</div>
+          <div><div style="font-size:13px;font-weight:700;margin-bottom:3px">${t.name}</div><div style="font-size:11px;color:var(--textMut)">${t.desc}</div></div>
+        </div>
+        ${isAdmin&&t.type==='custom'?`<button class="btn-ghost btn-sm" style="position:absolute;top:8px;right:8px" onclick="event.stopPropagation();delTool('${t.id}')">🗑</button>`:''}
+      </div>`).join('')}</div>`;
+}
+function calcSling(){
+  const load=+document.getElementById('sLoad').value,angle=+document.getElementById('sAngle').value,legs=+document.getElementById('sLegs').value;
+  const f=1/Math.cos((angle/2)*Math.PI/180),tpl=(load/legs)*f;
+  document.getElementById('slingResult').innerHTML=[{l:"放大係數",v:f.toFixed(3)+'×',c:'var(--amber)'},{l:"每條張力",v:tpl.toFixed(0)+'kg',c:'var(--blue)'},{l:"建議WLL",v:(tpl*2).toFixed(0)+'kg',c:'var(--green)'}].map(x=>`<div style="background:var(--bg);border-radius:8px;padding:14px;text-align:center"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">${x.l}</div><div style="font-size:20px;font-weight:800;color:${x.c};font-family:var(--mono)">${x.v}</div></div>`).join('');
+  document.getElementById('slingWarn').innerHTML=angle>120?'<div style="margin-top:14px;padding:10px;background:var(--redBg);border-radius:8px;color:var(--red);font-size:11px;font-weight:600">⚠️ 夾角超過120°！</div>':'';
+}
+
+// ─── TRACKING ────────────────────────────────────────────────
+function renderTracking(){
+  const cycle={pending:'in-progress','in-progress':'done',done:'pending'};
+  const el=document.getElementById('page-tracking');
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--textSec)">共 ${state.trk.length} 項 · 待辦 ${state.trk.filter(t=>t.status==='pending').length} · 進行中 ${state.trk.filter(t=>t.status==='in-progress').length} · 完成 ${state.trk.filter(t=>t.status==='done').length}</div>
+      ${isAdmin?'<button class="btn btn-pri" onclick="addTracking()">+ 新增</button>':''}
+    </div>
+    ${state.trk.map(t=>{const od=t.status!=='done'&&new Date(t.deadline)<new Date();return`
+      <div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid ${t.status==='done'?'var(--green)':t.status==='in-progress'?'var(--blue)':'var(--amber)'}">
+        <div style="flex:1"><div style="font-size:13px;font-weight:600;margin-bottom:3px;text-decoration:${t.status==='done'?'line-through':'none'};opacity:${t.status==='done'?.6:1}">${t.item}</div>
+          <div style="font-size:10px;color:var(--textMut);display:flex;gap:10px;flex-wrap:wrap"><span>👤 ${(t.assignees||[]).join(', ')}</span><span style="color:${od?'var(--red)':'var(--textMut)'}">📅 ${t.deadline}${od?' ⚠️':''}</span>${badge(t.priority==='high'?'高':t.priority==='medium'?'中':'低',t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--amber)':'var(--green)')}</div>
+          ${t.note?`<div style="font-size:11px;color:var(--textSec);margin-top:4px">${t.note}</div>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${isAdmin?`<button class="btn btn-sm ${t.status==='done'?'btn-success':'btn-def'}" onclick="cycleTrack(${t.id})">${t.status==='done'?'✅':t.status==='in-progress'?'🔄':'⏳'}</button><button class="btn btn-danger btn-sm" onclick="delTrack(${t.id})">🗑</button>`
+          :badge(t.status==='done'?'✅ 完成':t.status==='in-progress'?'🔄 進行中':'⏳ 待辦',t.status==='done'?'var(--green)':t.status==='in-progress'?'var(--blue)':'var(--amber)')}
+        </div>
+      </div>`}).join('')}`;
+}
+
+// ─── SCHEDULE ────────────────────────────────────────────────
+function renderSchedule(){
+  const sc=state.schedule;const year=parseInt(sc.month.split('-')[0]),mon=parseInt(sc.month.split('-')[1]);
+  const dim=new Date(year,mon,0).getDate();const pp=sc.people||[];
+  const el=document.getElementById('page-schedule');
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="month" class="inp" value="${sc.month}" onchange="state.schedule.month=this.value;saveState();renderSchedule()" style="width:160px;padding:6px 10px">
+        <div style="display:flex;gap:6px">${Object.entries(SCHED_LABEL).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--textSec)"><span style="width:12px;height:12px;border-radius:3px;background:${SCHED_COLOR[k]};display:inline-block"></span>${v}</span>`).join('')}</div>
+      </div>
+      ${isAdmin?'<button class="btn btn-pri" onclick="addSchedulePerson()">+ 新增人員</button>':''}
+    </div>
+    <div class="card" style="overflow:auto"><table class="sched-table">
+      <thead><tr><th class="sched-name-head" style="padding:8px 10px">人員</th>
+        ${Array.from({length:dim},(_,i)=>{const d=new Date(year,mon-1,i+1);const wd=d.getDay();return`<th style="color:${wd===0||wd===6?'var(--red)':'var(--textMut)'}">${i+1}<div style="font-size:7px">${'日一二三四五六'[wd]}</div></th>`}).join('')}
+        ${isAdmin?'<th style="min-width:28px"></th>':''}
+      </tr></thead>
+      <tbody>${pp.map((p,pi)=>`<tr>
+        <td class="sched-name">${p.name}</td>
+        ${Array.from({length:dim},(_,di)=>{const val=p.days?.[di]||'R';return`<td>${isAdmin?`<select class="sched-select" style="background:${SCHED_COLOR[val]||'var(--border)'}" onchange="updateSchedCell(${pi},${di},this.value);this.style.background=SCHED_COLOR[this.value]">${Object.keys(SCHED_LABEL).map(k=>`<option value="${k}"${k===val?' selected':''}>${k}</option>`).join('')}</select>`:`<div class="sched-cell" style="background:${SCHED_COLOR[val]||'var(--border)'}">${val}</div>`}</td>`}).join('')}
+        ${isAdmin?`<td><button class="btn-ghost btn-sm" onclick="delSchedPerson(${pi})">🗑</button></td>`:''}</tr>`).join('')}</tbody>
+    </table></div>`;
+}
+function updateSchedCell(pi,di,val){state.schedule.people[pi].days[di]=val;saveState()}
+function addSchedulePerson(){const name=prompt('輸入姓名');if(!name)return;state.schedule.people.push({name,days:Array.from({length:31},()=>'R')});saveState();renderSchedule();toast('已新增')}
+function delSchedPerson(pi){state.schedule.people.splice(pi,1);saveState();renderSchedule();toast('已刪除')}
+
+// ═══════════════════════════════════════════════════════════════
+// CRUD ACTIONS
+// ═══════════════════════════════════════════════════════════════
+function addAnnouncement(){
+  showGenModal('📢 新增公告',`
+    <div class="field"><label>公告內容</label><div class="rich-editor"><div class="rich-toolbar">
+      <button onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button>
+      <button onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button>
+      <button onmousedown="event.preventDefault();document.execCommand('underline')"><u>U</u></button>
+      <button onmousedown="event.preventDefault();document.execCommand('insertUnorderedList')">•</button>
+    </div><div contenteditable class="rich-content" id="annContent" data-placeholder="輸入公告內容..."></div></div></div>
+    <div class="field"><label>優先度</label><select class="sel" id="annPri"><option value="high">🔴 重要</option><option value="medium" selected>🟡 一般</option></select></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveAnn()">發布公告</button>`);
+}
+function saveAnn(){
+  const c=document.getElementById('annContent').innerHTML,p=document.getElementById('annPri').value;
+  if(!c.trim())return;state.ann.unshift({id:Date.now(),date:today(),content:c,priority:p});saveState();closeModal('genModal');toast('公告已發布');renderPage(currentPage);
+}
+function delAnn(id){state.ann=state.ann.filter(a=>a.id!==id);saveState();renderPage(currentPage);toast('已刪除')}
+
+function addTracking(){
+  showGenModal('📋 新增追蹤事項',`
+    <div class="field"><label>事項</label><input class="inp" id="trkItem" placeholder="事項內容..."></div>
+    <div class="field"><label>負責人</label><div style="display:flex;flex-wrap:wrap;gap:4px" id="trkAssignees">${TEAM.map(p=>`<button class="pill-btn" style="background:transparent;border:1px solid var(--border);color:var(--textSec);font-size:11px" onclick="this.dataset.sel=this.dataset.sel==='1'?'':'1';this.style.background=this.dataset.sel==='1'?'var(--amberBg)':'transparent';this.style.color=this.dataset.sel==='1'?'var(--amber)':'var(--textSec)'" data-name="${p}">${p}</button>`).join('')}</div></div>
+    <div class="field"><label>期限</label><input class="inp" type="date" id="trkDeadline"></div>
+    <div class="field"><label>優先度</label><select class="sel" id="trkPri"><option value="high">🔴 高</option><option value="medium" selected>🟡 中</option><option value="low">🟢 低</option></select></div>
+    <div class="field"><label>備註</label><div class="rich-editor"><div class="rich-toolbar"><button onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button><button onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button></div><div contenteditable class="rich-content" id="trkNote" data-placeholder="備註..."></div></div></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTrk()">新增</button>`);
+}
+function saveTrk(){
+  const item=document.getElementById('trkItem').value;if(!item)return;
+  const assignees=[...document.querySelectorAll('#trkAssignees button[data-sel="1"]')].map(b=>b.dataset.name);
+  state.trk.unshift({id:Date.now(),item,assignees,deadline:document.getElementById('trkDeadline').value,priority:document.getElementById('trkPri').value,status:'pending',note:document.getElementById('trkNote').innerHTML});
+  saveState();closeModal('genModal');toast('已新增');renderPage(currentPage);
+}
+function cycleTrack(id){const c={pending:'in-progress','in-progress':'done',done:'pending'};const t=state.trk.find(x=>x.id===id);if(t)t.status=c[t.status];saveState();renderTracking();toast('已更新')}
+function delTrack(id){state.trk=state.trk.filter(t=>t.id!==id);saveState();renderTracking();toast('已刪除')}
+
+function addDeficiency(){
+  showGenModal('⚠️ 新增TPC缺失單',`<div id="defFormArea"></div>`,600);
+  setTimeout(()=>renderDefForm('defFormArea'),0);
+}
+function renderDefForm(containerId){
+  document.getElementById(containerId).innerHTML=`
+    <div class="grid grid-2" style="gap:12px">
+      <div class="field"><label>發現日期</label><input class="inp" type="date" id="dfDate" value="${today()}"></div>
+      <div class="field"><label>改善期限</label><input class="inp" type="date" id="dfDue"></div>
+      <div class="field"><label>地點</label><select class="sel" id="dfLoc">${optionsHtml(LOCATIONS,true)}</select></div>
+      <div class="field"><label>承包商</label><select class="sel" id="dfCon">${optionsHtml(CONTRACTORS,true)}</select></div>
+      <div class="field"><label>類別</label><select class="sel" id="dfCat">${optionsHtml(DEF_CATS,true)}</select></div>
+      <div style="display:flex;align-items:flex-end;padding-bottom:14px"><span style="font-size:11px;color:var(--textSec)">嚴重度由系統判定</span></div>
+    </div>
+    <div class="field"><label>缺失說明</label><textarea class="txa" id="dfDesc" placeholder="描述..." oninput="previewSev()"></textarea></div>
+    <div id="sevPreview" style="margin-bottom:12px"></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDef()">建立缺失單</button>`;
+}
+function previewSev(){
+  const desc=document.getElementById('dfDesc').value,cat=document.getElementById('dfCat')?.value||'';
+  if(desc&&cat){const s=autoSeverity(desc,cat);document.getElementById('sevPreview').innerHTML=badge(SEV_LABEL[s]+' (系統判定)',SEV_COLOR[s])}
+}
+function saveDef(){
+  const date=document.getElementById('dfDate').value,due=document.getElementById('dfDue').value,loc=document.getElementById('dfLoc').value,con=document.getElementById('dfCon').value,cat=document.getElementById('dfCat').value,desc=document.getElementById('dfDesc').value;
+  if(!date||!due||!loc||!con||!cat||!desc)return toast('請填寫所有欄位','error');
+  const no='TPC-2026-'+String(state.def.length+1).padStart(3,'0');
+  state.def.unshift({id:Date.now(),no,date,location:loc,contractor:con,category:cat,description:desc,status:'open',dueDate:due,response:'',severity:autoSeverity(desc,cat)});
+  saveState();closeModal('genModal');activeTool=null;toast('缺失單已建立');renderPage(currentPage);
+}
+function viewDef(id){
+  const d=state.def.find(x=>x.id===id);if(!d)return;
+  showGenModal('缺失單 '+d.no,`
+    <div class="grid grid-2" style="gap:12px;margin-bottom:14px">
+      ${[['編號',d.no,'var(--amber)'],['日期',d.date],['地點',d.location],['承包商',d.contractor],['類別',d.category]].map(([l,v,c])=>`<div><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">${l}</div><div style="font-size:13px;${c?'font-weight:700;color:'+c+';font-family:var(--mono)':''}">${v}</div></div>`).join('')}
+      <div><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">嚴重度</div>${badge(SEV_LABEL[d.severity],SEV_COLOR[d.severity])}</div>
+    </div>
+    <div style="margin-bottom:14px"><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">說明</div><div style="font-size:12px;line-height:1.6;padding:10px;background:var(--bg);border-radius:8px">${d.description}</div></div>
+    <div style="margin-bottom:14px"><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">期限</div><div style="font-size:13px;font-weight:600;color:${isOverdue(d)?'var(--red)':'var(--text)'}">${d.dueDate}${isOverdue(d)?' ⚠️ 逾期':''}</div></div>
+    ${d.response?`<div style="margin-bottom:14px"><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">改善回覆</div><div style="font-size:12px;padding:10px;background:var(--bg);border-radius:8px">${d.response}</div></div>`:''}
+    ${isAdmin?`
+      <div class="field"><label>狀態</label><select class="sel" id="vdStatus"><option value="open"${d.status==='open'?' selected':''}>待改善</option><option value="in-progress"${d.status==='in-progress'?' selected':''}>改善中</option><option value="closed"${d.status==='closed'?' selected':''}>已結案</option></select></div>
+      <div class="field"><label>改善回覆</label><textarea class="txa" id="vdResponse">${d.response||''}</textarea></div>
+      <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="updateDef(${d.id})">更新</button>`:''}`,600);
+}
+function updateDef(id){
+  const d=state.def.find(x=>x.id===id);if(!d)return;
+  d.status=document.getElementById('vdStatus').value;d.response=document.getElementById('vdResponse').value;
+  saveState();closeModal('genModal');toast('已更新');renderPage(currentPage);
+}
+
+function addDocSection(){showGenModal('新增分類區塊',`<div class="field"><label>區塊名稱</label><input class="inp" id="secName" placeholder="例: ISP 個別安全施工計畫"></div><button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDocSec()">新增</button>`)}
+function saveDocSec(){const n=document.getElementById('secName').value;if(!n)return;state.docs.push({sec:n,items:[]});saveState();closeModal('genModal');toast('已新增');renderDocuments()}
+function addDocItem(si){showGenModal('新增文件',`
+  <div class="field"><label>編號</label><input class="inp" id="diCode" placeholder="NMDC-HSE-007"></div>
+  <div class="field"><label>名稱</label><input class="inp" id="diName" placeholder="文件名稱"></div>
+  <div class="field"><label>狀態</label><select class="sel" id="diStatus"><option value="complete">完整</option><option value="in-progress" selected>更新中</option></select></div>
+  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDocItem(${si})">新增</button>`)}
+function saveDocItem(si){const c=document.getElementById('diCode').value,n=document.getElementById('diName').value,s=document.getElementById('diStatus').value;if(!c||!n)return;state.docs[si].items.push({code:c,name:n,status:s});saveState();closeModal('genModal');toast('已新增');renderDocuments()}
+function delDoc(si,di){state.docs[si].items.splice(di,1);saveState();renderDocuments();toast('已刪除')}
+
+function addTool(){showGenModal('新增工具',`
+  <div class="field"><label>工具名稱</label><input class="inp" id="tlName" placeholder="名稱"></div>
+  <div class="field"><label>說明</label><input class="inp" id="tlDesc" placeholder="描述"></div>
+  <div class="field"><label>上傳 HTML 檔案</label><input type="file" accept=".html,.htm" id="tlFile" style="font-size:12px;color:var(--textSec)"><div id="tlFileStatus" style="margin-top:6px"></div></div>
+  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTool()">新增工具</button>`);
+  setTimeout(()=>{document.getElementById('tlFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{document.getElementById('tlFile').dataset.content=ev.target.result;document.getElementById('tlFileStatus').innerHTML=badge('✅ 已載入 '+(ev.target.result.length/1024).toFixed(1)+'KB','var(--green)')};r.readAsText(f)}},0);
+}
+function saveTool(){const n=document.getElementById('tlName').value,d=document.getElementById('tlDesc').value,h=document.getElementById('tlFile').dataset?.content||'';if(!n)return;state.tools.push({id:Date.now().toString(),name:n,desc:d,icon:'🔧',color:'var(--cyan)',type:'custom',htmlContent:h});saveState();closeModal('genModal');toast('已新增');renderTools()}
+function delTool(id){state.tools=state.tools.filter(t=>t.id!==id);saveState();renderTools();toast('已刪除')}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',function(){
+  loadState();
+  document.getElementById('todayDate').textContent=new Date().toLocaleDateString('zh-TW');
+  // Try Google Sheet connection
+  fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=SOC`)
+    .then(r=>r.text()).then(t=>{try{JSON.parse(t.replace(/^[^(]*\(/,'').replace(/\);?\s*$/,''));document.getElementById('sheetStatus').innerHTML='<span style="color:var(--green)">● 雲端已連線</span>'}catch{document.getElementById('sheetStatus').innerHTML='<span style="color:var(--textMut)">● 本地模式</span>'}})
+    .catch(()=>{document.getElementById('sheetStatus').innerHTML='<span style="color:var(--textMut)">● 本地模式</span>'});
+  buildNav();updateAdminUI();goPage('home');
+});
+</script>
+</body>
+</html>
