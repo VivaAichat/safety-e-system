@@ -270,7 +270,8 @@ function loadLocal(){try{const s=localStorage.getItem('safety_es_local');if(s){c
 // ═══════════════════════════════════════════════════════════════
 // GOOGLE APPS SCRIPT API (Sheet 2 — read/write)
 // ═══════════════════════════════════════════════════════════════
-function getGasUrl(){return localStorage.getItem('gasUrl')||''}
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzVkRYxb9NRjfRIGoLCoCeK6_71H_s62vBzpwoO3mhXJZOR0HJY4XCWdQ90b_x8FSjp/exec';
+function getGasUrl(){return localStorage.getItem('gasUrl') || GAS_URL}
 
 let gasConnected = false;
 
