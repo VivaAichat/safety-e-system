@@ -23,6 +23,7 @@ button{cursor:pointer;font-family:var(--font);transition:all .2s}
 button:hover:not(:disabled){filter:brightness(1.15)}
 input:focus,select:focus,textarea:focus{border-color:var(--amber)!important;box-shadow:0 0 0 2px var(--amberBg);outline:none}
 @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 [contenteditable]:empty:before{content:attr(data-placeholder);color:var(--textMut)}
 a{color:var(--amber);text-decoration:none}
 
@@ -128,6 +129,11 @@ a{color:var(--amber);text-decoration:none}
 .gauge-wrap{text-align:center}
 .gauge-label{font-size:12px;font-weight:700;margin-top:4px}
 
+/* LOADING */
+.loading-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:16px}
+.loading-bar .fill{height:100%;background:linear-gradient(90deg,var(--amber),var(--green));animation:loadAni 1.5s ease infinite;width:40%;border-radius:2px}
+@keyframes loadAni{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
+
 /* Responsive */
 @media(max-width:1200px){.grid-6{grid-template-columns:repeat(3,1fr)}.grid-5{grid-template-columns:repeat(3,1fr)}.grid-3{grid-template-columns:1fr 1fr}}
 @media(max-width:768px){.sidebar{position:fixed;z-index:200}.sidebar.collapsed{width:0;border:none}.main{padding:14px}.grid-2,.grid-3{grid-template-columns:1fr}.grid-6,.grid-5{grid-template-columns:repeat(2,1fr)}.header{flex-direction:column;align-items:flex-start;gap:8px}}
@@ -159,6 +165,9 @@ a{color:var(--amber);text-decoration:none}
       <p class="header-sub">NMDC Energy — Tongxiao Power Plant Phase II · <span id="todayDate"></span> <span id="sheetStatus" style="margin-left:8px"></span></p>
     </div>
     <div id="adminBadge" style="display:none"><span class="badge" style="color:var(--green);background:var(--greenBg)">ADMIN</span></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-def btn-sm" onclick="refreshData()" title="重新整理資料">🔄 重新整理</button>
+    </div>
   </header>
 
   <!-- PAGES -->
@@ -201,7 +210,7 @@ a{color:var(--amber);text-decoration:none}
 // STATE & CONFIG
 // ═══════════════════════════════════════════════════════════════
 const SHEET_ID = "19KlNuUTQO4_qzP6mYEAxh97La-RjjcvpyMC5c8K7Pj8";
-const TEAM = ["Jeffrey","陳工程師","李主管","王工程師","張專員","林安全師","Grace"];
+let TEAM = ["Sam","Daniel","Yong","Jin","Ben","Elson","Jeffrey","Vic","Noah","Jet","Sue"];
 const CONTRACTORS = ["海義 HiE","美綺 Magitech","高虎 GAC","兆濰/茂富","天力 Tianli"];
 const LOCATIONS = ["台中 Taichung","通霄 Tongxiao","天力 Tianli","離岸 Offshore"];
 const DEF_CATS = ["高處作業","吊掛作業","電氣安全","侷限空間","開挖作業","火災爆炸","機具安全","個人防護","環境整潔","交通管理","工作許可","施工架","其他"];
@@ -226,28 +235,565 @@ let state = {
     {id:4,no:"TPC-2026-004",date:"2026-04-09",location:"通霄",contractor:"兆濰/茂富",category:"個人防護",description:"未穿著安全鞋進入工區",status:"open",dueDate:"2026-04-16",response:""}
   ],
   docs: [
-    {sec:"安全管理程序 Safety Procedures",items:[{code:"NMDC-HSE-001",name:"HSE Management Plan",status:"complete"},{code:"NMDC-HSE-002",name:"PTW Procedure",status:"complete"},{code:"NMDC-HSE-003",name:"LOTO Procedure",status:"complete"},{code:"NMDC-HSE-004",name:"Lifting & Rigging Procedure",status:"in-progress"},{code:"NMDC-HSE-005",name:"Confined Space Entry",status:"complete"},{code:"NMDC-HSE-006",name:"Hot Work Procedure",status:"complete"}]},
-    {sec:"ISP 個別安全施工計畫 Individual Safety Procedure",items:[{code:"ISP-001",name:"海義 管線焊接 ISP",status:"complete"},{code:"ISP-002",name:"高虎 吊掛作業 ISP",status:"in-progress"},{code:"ISP-003",name:"美綺 電氣施工 ISP",status:"complete"},{code:"ISP-004",name:"天力 風機安裝 ISP",status:"in-progress"}]},
-    {sec:"風險評估 Risk Assessment",items:[{code:"NMDC-RA-001",name:"Submarine Pipeline Installation RA",status:"complete"},{code:"NMDC-RA-002",name:"JSG High Pressure Grouting RA",status:"complete"},{code:"NMDC-RA-003",name:"Marine Dredging RA",status:"in-progress"}]},
-    {sec:"教育訓練 Training Materials",items:[{code:"NMDC-TR-001",name:"新進人員安全教育",status:"complete"},{code:"NMDC-TR-002",name:"LOTO Training (中/英/泰)",status:"complete"},{code:"NMDC-TR-003",name:"手部安全 Hand Safety",status:"complete"}]},
-    {sec:"表格範本 Forms & Templates",items:[{code:"NMDC-FM-001",name:"BSA 行為安全觀察表",status:"complete"},{code:"NMDC-FM-002",name:"TPC 缺失改善單",status:"complete"},{code:"NMDC-FM-003",name:"TBM-KY 報告表",status:"complete"}]}
+    {sec:"安全管理程序 Safety Procedures",items:[{code:"NMDC-HSE-001",name:"HSE Management Plan",status:"complete",fileUrl:""},{code:"NMDC-HSE-002",name:"PTW Procedure",status:"complete",fileUrl:""},{code:"NMDC-HSE-003",name:"LOTO Procedure",status:"complete",fileUrl:""},{code:"NMDC-HSE-004",name:"Lifting & Rigging Procedure",status:"in-progress",fileUrl:""},{code:"NMDC-HSE-005",name:"Confined Space Entry",status:"complete",fileUrl:""},{code:"NMDC-HSE-006",name:"Hot Work Procedure",status:"complete",fileUrl:""}]},
+    {sec:"ISP 個別安全施工計畫 Individual Safety Procedure",items:[{code:"ISP-001",name:"海義 管線焊接 ISP",status:"complete",fileUrl:""},{code:"ISP-002",name:"高虎 吊掛作業 ISP",status:"in-progress",fileUrl:""},{code:"ISP-003",name:"美綺 電氣施工 ISP",status:"complete",fileUrl:""},{code:"ISP-004",name:"天力 風機安裝 ISP",status:"in-progress",fileUrl:""}]},
+    {sec:"風險評估 Risk Assessment",items:[{code:"NMDC-RA-001",name:"Submarine Pipeline Installation RA",status:"complete",fileUrl:""},{code:"NMDC-RA-002",name:"JSG High Pressure Grouting RA",status:"complete",fileUrl:""},{code:"NMDC-RA-003",name:"Marine Dredging RA",status:"in-progress",fileUrl:""}]},
+    {sec:"教育訓練 Training Materials",items:[{code:"NMDC-TR-001",name:"新進人員安全教育",status:"complete",fileUrl:""},{code:"NMDC-TR-002",name:"LOTO Training (中/英/泰)",status:"complete",fileUrl:""},{code:"NMDC-TR-003",name:"手部安全 Hand Safety",status:"complete",fileUrl:""}]},
+    {sec:"表格範本 Forms & Templates",items:[{code:"NMDC-FM-001",name:"BSA 行為安全觀察表",status:"complete",fileUrl:""},{code:"NMDC-FM-002",name:"TPC 缺失改善單",status:"complete",fileUrl:""},{code:"NMDC-FM-003",name:"TBM-KY 報告表",status:"complete",fileUrl:""}]}
   ],
   tools: [{id:"tpc-def",name:"TPC 缺失單新增",desc:"新增TPC安全缺失改善單",icon:"⚠️",color:"var(--red)",type:"builtin"},{id:"sling-calc",name:"吊掛張力計算器",desc:"Sling Tension Calculator",icon:"🔧",color:"var(--purple)",type:"builtin"},{id:"gas-url",name:"GAS URL 設定",desc:"連接 Google Apps Script",icon:"🔗",color:"var(--textSec)",type:"builtin"}],
   schedule: {month:"2026-04",people:[]},
 };
-// Initialize schedule with team
-state.schedule.people = TEAM.map(p => ({name:p, days:Array.from({length:30},(_,i)=>{const wd=new Date(2026,3,i+1).getDay();return wd===0||wd===6?"H":"R"})}));
-// Auto severity for deficiencies
+if(!state.schedule.people || state.schedule.people.length === 0) {
+  state.schedule.people = TEAM.map(p => ({name:p, days:Array.from({length:30},(_,i)=>{const wd=new Date(2026,3,i+1).getDay();return wd===0||wd===6?"H":"R"})}));
+}
 state.def.forEach(d => d.severity = autoSeverity(d.description, d.category));
 
-const dash = {
-  summary:{totalSOC:186,totalNCR:24,totalDefects:210,positives:45,closureRate:87.5,manpower:342,safeHours:285600,trir:0.35,ltir:0,far:0,nearMissRate:2.1,severityRate:0,penaltyAmount:150000,conditionOpen:12,conditionClosed:85,actionOpen:5,actionClosed:63},
-  ncrClosure:87.5,ptwCompliance:96.2,tbmRate:98.5,
-  socByCategory:[{name:"環境整潔",value:42},{name:"吊掛作業",value:28},{name:"個人防護",value:35},{name:"高處作業",value:22},{name:"電氣安全",value:18},{name:"機具安全",value:15},{name:"交通管理",value:12},{name:"其他",value:14}],
-  monthly:[{m:"2025/10",soc:24,ncr:3},{m:"2025/11",soc:28,ncr:5},{m:"2025/12",soc:32,ncr:4},{m:"2026/01",soc:30,ncr:6},{m:"2026/02",soc:25,ncr:3},{m:"2026/03",soc:38,ncr:4},{m:"2026/04",soc:9,ncr:1}],
-  contractorRank:[{name:"天力 Tianli",soc:31,ncr:1,cond:12,act:5,closed:16,score:90},{name:"美綺 Magitech",soc:32,ncr:4,cond:18,act:10,closed:25,score:85},{name:"海義 HiE",soc:45,ncr:8,cond:28,act:15,closed:36,score:82},{name:"高虎 GAC",soc:38,ncr:6,cond:22,act:12,closed:27,score:78},{name:"兆濰/茂富",soc:40,ncr:5,cond:25,act:13,closed:28,score:75}],
-  manpower:[{name:"海義 HiE",avg:15,max:22,hours:28800},{name:"高虎 GAC",avg:12,max:18,hours:23040},{name:"美綺 Magitech",avg:8,max:14,hours:15360},{name:"兆濰/茂富",avg:10,max:16,hours:19200},{name:"天力 Tianli",avg:7,max:12,hours:13440}]
-};
+// ═══════════════════════════════════════════════════════════════
+// GOOGLE SHEET LIVE DATA ENGINE (Google Visualization API)
+// ═══════════════════════════════════════════════════════════════
+let gsheetData = {allData:[], manpowerData:[], tbmByDate:{}, workingDaysByDate:{}, totalPeopleByDate:{}, totalHoursByDate:{}, incidentData:{}, socSubcontractors:new Set()};
+let sheetLoaded = false;
+let sheetLoadError = false;
+
+// ── JSONP loader (bypasses CORS & sandbox restrictions) ──
+let _jsonpCounter = 0;
+function loadSheetJsonp(sheetName) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_gviz_cb_' + (++_jsonpCounter) + '_' + Date.now();
+    const timeout = setTimeout(() => {
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      reject(new Error('JSONP timeout for ' + sheetName));
+    }, 15000);
+
+    window[cbName] = function(resp) {
+      clearTimeout(timeout);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      resolve(resp);
+    };
+
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
+    const script = document.createElement('script');
+    script.src = url;
+    script.onerror = () => {
+      clearTimeout(timeout);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      reject(new Error('Script load error for ' + sheetName));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// ── Parse GViz date value (handles "Date(y,m,d)" and Excel serial) ──
+function parseGvizDate(val) {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string' && val.startsWith('Date(')) {
+    const parts = val.replace('Date(','').replace(')','').split(',').map(Number);
+    const d = new Date(parts[0], parts[1], parts[2]||1);
+    return d.toISOString().slice(0,10);
+  }
+  if (typeof val === 'number') {
+    // Excel serial date → JS date (epoch 1899-12-30)
+    const d = new Date((val - 25569) * 86400000);
+    return d.toISOString().slice(0,10);
+  }
+  return String(val);
+}
+
+// ── Convert SOC/TPC_NCR table (label-based columns) ──
+function gvizToFormRows(gvizTable) {
+  // Map label keywords → short keys
+  const LABEL_MAP = {
+    'filled date': 'filled_date',
+    '填寫日期': 'filled_date',
+    'observation type': 'observation_type',
+    '觀察種類': 'observation_type',
+    'observed subcontractor': 'observed_subcontractor',
+    '觀察到的承攬商': 'observed_subcontractor',
+    'location': 'location',
+    '地點': 'location',
+    'hazard type': 'hazard_type',
+    '危害種類': 'hazard_type',
+    'lsr violated': 'LSR_violated',
+    '保命原則': 'LSR_violated',
+    'dercription': 'description',  // typo in actual sheet
+    'description': 'description',
+    '描述': 'description',
+    '優點': 'description',
+    'already been solved': 'already_solved',
+    '已經解決': 'already_solved',
+    'operation': 'operation',
+    '工作內容': 'operation',
+  };
+
+  const colKeys = gvizTable.cols.map(c => {
+    const lbl = (c.label || '').toLowerCase();
+    for (const [kw, key] of Object.entries(LABEL_MAP)) {
+      if (lbl.includes(kw.toLowerCase())) return key;
+    }
+    return c.id; // fallback to column ID
+  });
+
+  return gvizTable.rows.map(row => {
+    const obj = {};
+    row.c.forEach((cell, i) => {
+      if (!cell) return;
+      let val = cell.v;
+      if (val === null || val === undefined) return;
+      const key = colKeys[i];
+      if (key === 'filled_date') val = parseGvizDate(val);
+      obj[key] = val;
+    });
+    return obj;
+  });
+}
+
+// ── Convert manpower table (no labels, row 0 = date serials, rows 1+ = companies) ──
+function gvizToManpowerData(gvizTable) {
+  const rows = gvizTable.rows;
+  if (rows.length < 2) return [];
+
+  // Row 0: column A is empty/header, columns B+ are Excel date serial numbers
+  const dateRow = rows[0];
+  const dateMap = {}; // col index → date string
+  dateRow.c.forEach((cell, i) => {
+    if (i === 0 || !cell || cell.v === null) return;
+    dateMap[i] = parseGvizDate(cell.v);
+  });
+
+  // Rows 1+: column A = company name, columns B+ = daily counts
+  const result = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const companyCell = row.c[0];
+    const company = companyCell ? String(companyCell.v || '') : '';
+    if (!company) continue;
+
+    const dailyData = {};
+    row.c.forEach((cell, i) => {
+      if (i === 0 || !dateMap[i] || !cell) return;
+      const cnt = parseFloat(cell.v) || 0;
+      dailyData[dateMap[i]] = cnt;
+    });
+
+    result.push({ company, dailyData });
+  }
+  return result;
+}
+
+function getDefectCategory(t) {
+  if (!t) return null;
+  const s = (t+'').toLowerCase();
+  if (s.includes('不安全條件') || s.includes('unsafe condition')) return 'Condition';
+  if (s.includes('不安全行為') || s.includes('unsafe action'))    return 'Action';
+  if (s.includes('優點') || s.includes('good practice'))          return 'Positive';
+  return null;
+}
+
+async function loadGoogleSheetData() {
+  const statusEl = document.getElementById('sheetStatus');
+  statusEl.innerHTML = '<span style="color:var(--amber);animation:pulse 1s infinite">● 連線中...</span>';
+
+  try {
+    const [socGviz, tpcGviz, mpGviz] = await Promise.all([
+      loadSheetJsonp('SOC'),
+      loadSheetJsonp('TPC NCR'),   // ← 空格，不是底線！
+      loadSheetJsonp('manpower')
+    ]);
+
+    if (socGviz.status === 'error' || tpcGviz.status === 'error' || mpGviz.status === 'error') {
+      throw new Error('GViz query error');
+    }
+
+    const socRows = gvizToFormRows(socGviz.table);
+    const tpcRows = gvizToTpcRows(tpcGviz.table); // TPC NCR has different columns
+    const mpData  = gvizToManpowerData(mpGviz.table);
+
+    processSheetData(socRows, tpcRows, mpData);
+
+    sheetLoaded = true;
+    statusEl.innerHTML = `<span style="color:var(--green)">● 雲端已連線</span> <span style="font-size:10px;color:var(--textMut)">(SOC:${socRows.length} TPC:${tpcRows.length} MP:${mpData.length})</span>`;
+    toast('Google Sheet 資料載入完成 ✓');
+
+    // Re-render current page
+    renderPage(currentPage);
+  } catch(err) {
+    console.error('Sheet load error:', err);
+    sheetLoadError = true;
+    statusEl.innerHTML = '<span style="color:var(--red)">● 連線失敗</span> <span style="font-size:10px;color:var(--textMut)">(使用本地資料)</span>';
+  }
+}
+
+// ── Convert TPC NCR table (different column structure) ──
+// Columns: 開單日期, 開立單位, 主辦組, 巡檢類型, 管登編號, 承攬商, 開立總類, 其他 Other, 內容, 缺失種類, 罰款金額, 是否結案, 結案日期
+function gvizToTpcRows(gvizTable) {
+  const TPC_LABEL_MAP = {
+    '開單日期': 'issue_date',
+    '開立單位': 'issuer',
+    '主辦組': 'department',
+    '巡檢類型': 'inspection_type',
+    '管登編號': 'ncr_no',
+    '承攬商': 'contractor',
+    '開立總類': 'issue_category',
+    '其他': 'other_category',
+    '內容': 'description',
+    '缺失種類': 'defect_type',
+    '罰款金額': 'penalty_amount',
+    '是否結案': 'is_closed',
+    '結案日期': 'close_date',
+  };
+
+  const colKeys = gvizTable.cols.map(c => {
+    const lbl = (c.label || '').trim();
+    for (const [kw, key] of Object.entries(TPC_LABEL_MAP)) {
+      if (lbl.includes(kw)) return key;
+    }
+    return c.id;
+  });
+
+  return gvizTable.rows.map(row => {
+    const obj = {};
+    row.c.forEach((cell, i) => {
+      if (!cell) return;
+      let val = cell.v;
+      if (val === null || val === undefined) return;
+      const key = colKeys[i];
+      if (key === 'issue_date' || key === 'close_date') val = parseGvizDate(val);
+      obj[key] = val;
+    });
+    return obj;
+  });
+}
+
+function processSheetData(socRows, tpcRows, mpData) {
+  const g = gsheetData;
+  g.allData = [];
+  g.manpowerData = [];
+  g.tbmByDate = {};
+  g.workingDaysByDate = {};
+  g.totalPeopleByDate = {};
+  g.totalHoursByDate = {};
+  g.incidentData = {};
+  g.socSubcontractors = new Set();
+
+  const INCIDENT_KEYS = ['Recordable incidents','LTI cases','Lost days','Near Miss','Fatalities'];
+
+  // ── Helper: process one form row (SOC and TPC_NCR share the same structure) ──
+  function processFormRow(row, idx, source) {
+    const sub = row.observed_subcontractor || '';
+    if (sub) g.socSubcontractors.add(sub);
+    const obsType = row.observation_type || '';
+    const dc = getDefectCategory(obsType);
+    const hazType = row.hazard_type || '';
+    const desc = row.description || '';
+    const loc = row.location || '';
+    const filledDate = row.filled_date || '';
+    const solved = row.already_solved === true || String(row.already_solved).toLowerCase() === 'true';
+    const lsrRaw = String(row.LSR_violated || '').toLowerCase();
+    const lsrViolated = lsrRaw === 'true' || lsrRaw.includes('是') || lsrRaw.includes('yes');
+
+    g.allData.push({
+      id: source + '-' + idx,
+      date: filledDate,
+      type: dc === 'Positive' ? '優點' : '缺點',
+      defectCategory: dc,
+      subcontractor: sub,
+      category: hazType,
+      location: loc,
+      description: desc,
+      solved: solved,
+      lsr: lsrViolated,
+      source: source,
+      isPTWViolation: hazType.includes('工作許可') || (desc||'').toLowerCase().includes('ptw') || (desc||'').includes('工作許可')
+    });
+  }
+
+  socRows.forEach((row, idx) => processFormRow(row, idx, 'SOC'));
+
+  // ── Process TPC NCR rows (completely different structure) ──
+  // Columns: issue_date, contractor, issue_category, defect_type, penalty_amount, is_closed, description, other_category
+  tpcRows.forEach((row, idx) => {
+    let contractor = row.contractor || '';
+    // Try to match with SOC subcontractor names
+    let matchedSub = contractor;
+    g.socSubcontractors.forEach(s => {
+      if ((contractor.includes('兆濰') && s.includes('兆濰')) ||
+          (contractor.includes('茂富') && s.includes('茂富')) ||
+          (contractor.includes('NMDC') && s.includes('NMDC')) ||
+          (contractor.includes('安達希') && s.includes('NMDC')) ||
+          (contractor.includes('環海') && s.includes('環海')) ||
+          (contractor.includes('EGS') && s.includes('EGS')) ||
+          (contractor.includes('海義') && s.includes('海義')) ||
+          (contractor.includes('HiE') && s.includes('HiE')) ||
+          (contractor.includes('高虎') && s.includes('高虎')) ||
+          (contractor.includes('GAC') && s.includes('GAC')) ||
+          (contractor.includes('美綺') && s.includes('美綺')) ||
+          (contractor.includes('天力') && s.includes('天力'))) matchedSub = s;
+    });
+
+    let penaltyAmount = 0;
+    if (row.penalty_amount) penaltyAmount = parseFloat(String(row.penalty_amount).replace(/[^\d.]/g,'')) || 0;
+
+    // issue_category: 不安全條件, 不安全行為, 優點, 罰單
+    const issueCat = row.issue_category || '';
+    let type = '缺點', dc = 'Condition';
+    if (issueCat.includes('罰單')) type = '罰單';
+    else if (issueCat.includes('優點') || issueCat.includes('Good practice')) { type = '優點'; dc = 'Positive'; }
+    if (issueCat.includes('不安全行為') || issueCat.includes('Unsafe action')) dc = 'Action';
+    if (issueCat.includes('不安全條件') || issueCat.includes('Unsafe condition')) dc = 'Condition';
+
+    const defectType = row.defect_type || row.other_category || '';
+    const desc = row.description || '';
+    const dtStr = defectType.toLowerCase();
+    const isClosed = row.is_closed === '是' || row.is_closed === true || String(row.is_closed).includes('是');
+
+    g.allData.push({
+      id: 'TPC-'+idx,
+      date: row.issue_date || '',
+      type: type,
+      defectCategory: dc,
+      subcontractor: matchedSub || contractor,
+      category: defectType,
+      location: '',
+      description: desc,
+      solved: isClosed,
+      lsr: false,
+      penaltyAmount: penaltyAmount,
+      ncrNo: row.ncr_no || '',
+      source: 'TPC NCR',
+      isPTWViolation: dtStr.includes('工作許可') || dtStr.includes('ptw') || dtStr.includes('permit')
+    });
+  });
+
+  // ── Process Manpower (pre-parsed array of {company, dailyData}) ──
+  mpData.forEach(item => {
+    const cname = item.company;
+    if (!cname) return;
+    const isTBM = cname === 'TBM 次數';
+    const isTotal = cname === 'TOTAL';
+    const isTotalHours = cname === 'TOTAL HOURS';
+    const isIncident = INCIDENT_KEYS.includes(cname);
+
+    Object.entries(item.dailyData).forEach(([dateStr, cnt]) => {
+      if (isTBM) {
+        g.tbmByDate[dateStr] = (g.tbmByDate[dateStr]||0) + cnt;
+      } else if (isTotalHours) {
+        g.totalHoursByDate[dateStr] = cnt;
+      } else if (isIncident) {
+        if (!g.incidentData[cname]) g.incidentData[cname] = {};
+        g.incidentData[cname][dateStr] = cnt;
+      } else if (isTotal) {
+        g.totalPeopleByDate[dateStr] = cnt;
+      } else {
+        if (cnt > 0) {
+          g.manpowerData.push({ company: cname, date: dateStr, count: cnt });
+          if (!g.workingDaysByDate[dateStr]) g.workingDaysByDate[dateStr] = 0;
+          g.workingDaysByDate[dateStr] += cnt;
+        }
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KPI CALCULATION ENGINE (ported from v2.4)
+// ═══════════════════════════════════════════════════════════════
+function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
+  if (!sheetLoaded) return getFallbackKPI();
+  const g = gsheetData;
+
+  // Base filter
+  let base = g.allData.filter(item =>
+    item.date >= startDate && item.date <= endDate &&
+    (source === 'All' || item.source === source) &&
+    (subFilter === 'All' || item.subcontractor === subFilter) &&
+    (locFilter === 'All' || item.location === locFilter)
+  );
+
+  const allDefects = base.filter(d => d.type === '缺點' || d.type === '罰單');
+  const condDef = allDefects.filter(d => d.defectCategory === 'Condition');
+  const actDef  = allDefects.filter(d => d.defectCategory === 'Action');
+
+  let filtered = dcFilter && dcFilter !== 'All'
+    ? base.filter(i => i.type === '優點' || i.defectCategory === dcFilter)
+    : base;
+
+  const defects   = filtered.filter(d => d.type === '缺點' || d.type === '罰單');
+  const positives = filtered.filter(d => d.type === '優點');
+  const closed    = defects.filter(d => d.solved);
+  const socDef    = filtered.filter(d => d.source === 'SOC' && (d.type === '缺點' || d.type === '罰單'));
+  const tpcDef    = filtered.filter(d => d.source === 'TPC NCR' && (d.type === '缺點' || d.type === '罰單'));
+  const tpcPen    = filtered.filter(d => d.source === 'TPC NCR' && d.type === '罰單');
+  const lsrViol   = defects.filter(d => d.lsr);
+
+  let totalPenalty = 0;
+  tpcPen.forEach(i => totalPenalty += parseFloat(i.penaltyAmount) || 0);
+
+  const closureRate = defects.length > 0 ? (closed.length / defects.length) * 100 : 0;
+
+  // PTW compliance
+  const ptwViolations = allDefects.filter(d => d.isPTWViolation).length;
+  const ptwRate = allDefects.length > 0 ? Math.max(0, (1 - ptwViolations / allDefects.length) * 100) : 100;
+
+  // TBM rate
+  const workDays = Object.keys(g.workingDaysByDate).filter(d => d >= startDate && d <= endDate);
+  const tbmDays = workDays.filter(d => (g.tbmByDate[d] || 0) >= 1);
+  const tbmRate = workDays.length > 0 ? (tbmDays.length / workDays.length) * 100 : 0;
+
+  // Lagging indicators
+  let totalPeople = 0;
+  Object.entries(g.totalPeopleByDate).forEach(([date, val]) => {
+    if (date >= startDate && date <= endDate) totalPeople += val;
+  });
+  const totalHours = totalPeople * 8;
+  function sumIncident(key) {
+    if (!g.incidentData[key]) return 0;
+    return Object.entries(g.incidentData[key])
+      .filter(([d]) => d >= startDate && d <= endDate)
+      .reduce((s, [, v]) => s + v, 0);
+  }
+  const rec  = sumIncident('Recordable incidents');
+  const lti  = sumIncident('LTI cases');
+  const lost = sumIncident('Lost days');
+  const nm   = sumIncident('Near Miss');
+  const fat  = sumIncident('Fatalities');
+  const calcRate = (n, mul) => totalHours > 0 ? (n * mul / totalHours) : 0;
+  const trir     = calcRate(rec, 200000);
+  const ltir     = calcRate(lti, 200000);
+  const severity = calcRate(lost, 200000);
+  const nmRate   = calcRate(nm, 200000);
+  const far      = calcRate(fat, 100000000);
+
+  // Category stats
+  const catStats = {};
+  defects.forEach(item => {
+    if (!item.category) return;
+    if (!catStats[item.category]) catStats[item.category] = { total:0, condition:0, action:0 };
+    catStats[item.category].total++;
+    if (item.defectCategory === 'Condition') catStats[item.category].condition++;
+    else if (item.defectCategory === 'Action') catStats[item.category].action++;
+  });
+  const socByCategory = Object.entries(catStats)
+    .map(([name, v]) => ({name, value: v.total, condition: v.condition, action: v.action}))
+    .sort((a,b) => b.value - a.value);
+
+  // Monthly stats
+  const monthlyStats = {};
+  base.forEach(item => {
+    if (item.date && (item.type === '缺點' || item.type === '罰單')) {
+      const m = item.date.substring(0,7);
+      if (!monthlyStats[m]) monthlyStats[m] = { soc:0, ncr:0 };
+      if (item.source === 'SOC') monthlyStats[m].soc++;
+      else monthlyStats[m].ncr++;
+    }
+  });
+  const monthly = Object.entries(monthlyStats).sort((a,b)=>a[0].localeCompare(b[0]))
+    .map(([m, v]) => ({m, soc: v.soc, ncr: v.ncr}));
+
+  // Contractor ranking
+  const subStats = {};
+  filtered.forEach(item => {
+    if (item.subcontractor && (item.type === '缺點' || item.type === '罰單')) {
+      if (!subStats[item.subcontractor]) subStats[item.subcontractor] = { name:item.subcontractor, soc:0, ncr:0, cond:0, act:0, closed:0, total:0 };
+      subStats[item.subcontractor].total++;
+      if (item.defectCategory === 'Condition') subStats[item.subcontractor].cond++;
+      else if (item.defectCategory === 'Action') subStats[item.subcontractor].act++;
+      if (item.solved) subStats[item.subcontractor].closed++;
+      if (item.source === 'SOC') subStats[item.subcontractor].soc++;
+      else subStats[item.subcontractor].ncr++;
+    }
+  });
+  const contractorRank = Object.values(subStats)
+    .filter(i=>i.total>0)
+    .map(c => ({...c, score: c.total > 0 ? Math.round((c.closed/c.total)*100) : 0}))
+    .sort((a,b) => b.score - a.score);
+
+  // Manpower stats
+  const mpFiltered = g.manpowerData.filter(i => i.date >= startDate && i.date <= endDate);
+  const mpByCompany = {};
+  mpFiltered.forEach(item => {
+    if (!mpByCompany[item.company]) mpByCompany[item.company] = {name:item.company, total:0, max:0, days:new Set()};
+    mpByCompany[item.company].total += item.count;
+    mpByCompany[item.company].max = Math.max(mpByCompany[item.company].max, item.count);
+    mpByCompany[item.company].days.add(item.date);
+  });
+  const manpower = Object.values(mpByCompany).map(c => ({
+    name: c.name,
+    avg: c.days.size > 0 ? Math.round(c.total / c.days.size) : 0,
+    max: c.max,
+    hours: c.total * 8
+  })).sort((a,b) => b.hours - a.hours);
+
+  const openCond   = condDef.filter(d => !d.solved).length;
+  const openAct    = actDef.filter(d  => !d.solved).length;
+  const closedCond = condDef.filter(d => d.solved).length;
+  const closedAct  = actDef.filter(d  => d.solved).length;
+
+  return {
+    summary: {
+      totalSOC: socDef.length, totalNCR: tpcDef.length,
+      totalDefects: defects.length, positives: positives.length,
+      closureRate: closureRate, manpower: totalPeople,
+      safeHours: totalHours,
+      trir, ltir, far, nearMissRate: nmRate, severityRate: severity,
+      penaltyAmount: totalPenalty,
+      conditionOpen: openCond, conditionClosed: closedCond,
+      actionOpen: openAct, actionClosed: closedAct,
+      lsrViolations: lsrViol.length,
+      rec, lti, lost, nm, fat, totalPeople, totalHours
+    },
+    ncrClosure: closureRate, ptwCompliance: ptwRate, tbmRate: tbmRate,
+    socByCategory, monthly, contractorRank, manpower,
+    // Monthly manpower by location (台中/通霄)
+    monthlyManpower: calcMonthlyManpowerByLocation(startDate, endDate)
+  };
+}
+
+function calcMonthlyManpowerByLocation(startDate, endDate) {
+  const g = gsheetData;
+  const monthData = {}; // month → {taichung, tongxiao}
+  g.manpowerData.forEach(item => {
+    if (item.date < startDate || item.date > endDate) return;
+    const m = item.date.substring(0, 7);
+    if (!monthData[m]) monthData[m] = { taichung: 0, tongxiao: 0, unassigned: 0 };
+    const cn = (item.company || '').toLowerCase();
+    if (cn.includes('台中') || cn.includes('taichung')) {
+      monthData[m].taichung += item.count;
+    } else if (cn.includes('通霄') || cn.includes('tongxiao') || cn.includes('tunghsiao')) {
+      monthData[m].tongxiao += item.count;
+    } else {
+      monthData[m].unassigned += item.count;
+    }
+  });
+  // Split unassigned 50/50 rounded
+  return Object.entries(monthData).sort((a,b)=>a[0].localeCompare(b[0])).map(([m, v]) => {
+    const halfUp = Math.ceil(v.unassigned / 2);
+    const halfDown = Math.floor(v.unassigned / 2);
+    return { month: m, taichung: v.taichung + halfUp, tongxiao: v.tongxiao + halfDown };
+  });
+}
+
+function getFallbackKPI() {
+  return {
+    summary:{totalSOC:0,totalNCR:0,totalDefects:0,positives:0,closureRate:0,manpower:0,safeHours:0,trir:0,ltir:0,far:0,nearMissRate:0,severityRate:0,penaltyAmount:0,conditionOpen:0,conditionClosed:0,actionOpen:0,actionClosed:0,lsrViolations:0,rec:0,lti:0,lost:0,nm:0,fat:0,totalPeople:0,totalHours:0},
+    ncrClosure:0,ptwCompliance:0,tbmRate:0,
+    socByCategory:[],monthly:[],contractorRank:[],manpower:[],monthlyManpower:[]
+  };
+}
+
+function getDateRange() {
+  if (sheetLoaded) {
+    const allDates = [
+      ...gsheetData.allData.map(d=>d.date),
+      ...Object.keys(gsheetData.totalPeopleByDate)
+    ].filter(d => d && d.length >= 10).sort();
+    if (allDates.length > 0) return { start: allDates[0], end: allDates[allDates.length-1] };
+  }
+  return { start: '2025-04-01', end: new Date().toISOString().slice(0,10) };
+}
 
 const NAV = [
   {id:"home",label:"首頁 Home",icon:"🏠"},{id:"dashboard",label:"儀表板 Dashboard",icon:"📊"},
@@ -268,7 +814,14 @@ function autoSeverity(desc,cat){
 }
 function badge(text,color){return `<span class="badge" style="color:${color};background:${color}20">${text}</span>`}
 function saveState(){try{localStorage.setItem('safety_es',JSON.stringify(state))}catch{}}
-function loadState(){try{const s=localStorage.getItem('safety_es');if(s){const d=JSON.parse(s);Object.assign(state,d);state.def.forEach(x=>{if(!x.severity)x.severity=autoSeverity(x.description,x.category)})}}catch{}}
+function loadState(){try{const s=localStorage.getItem('safety_es');if(s){const d=JSON.parse(s);Object.assign(state,d);state.def.forEach(x=>{if(!x.severity)x.severity=autoSeverity(x.description,x.category)});if(state.customTeam)TEAM=state.customTeam;}}catch{}}
+function getTeam(){return state.customTeam||TEAM}
+function addTeamMember(){const n=prompt('輸入新人員姓名');if(!n)return;if(!state.customTeam)state.customTeam=[...TEAM];state.customTeam.push(n);TEAM=state.customTeam;saveState();toast('已新增 '+n);renderPage(currentPage)}
+function refreshData(){
+  sheetLoaded=false;sheetLoadError=false;
+  document.getElementById('sheetStatus').innerHTML='<span style="color:var(--amber);animation:pulse 1s infinite">● 重新載入中...</span>';
+  loadGoogleSheetData();
+}
 function toast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.classList.remove('show'),2800)}
 function openModal(id){document.getElementById(id).classList.add('show')}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
@@ -323,23 +876,26 @@ function renderPage(id){
 
 // ─── HOME ────────────────────────────────────────────────────
 function renderHome(){
-  const s=dash.summary;
+  const range = getDateRange();
+  const kpi = calcKPI(range.start, range.end, 'All', 'All', 'All', 'All');
+  const s = kpi.summary;
   const openDefs=state.def.filter(d=>d.status!=='closed').length;
   const overdue=state.def.filter(d=>isOverdue(d)).length;
   const pendingTrk=state.trk.filter(t=>t.status!=='done').length;
   const el=document.getElementById('page-home');
   el.innerHTML=`
+    ${!sheetLoaded && !sheetLoadError ? '<div class="loading-bar"><div class="fill"></div></div><p style="font-size:11px;color:var(--textMut);margin-bottom:14px;text-align:center">正在從 Google Sheet 載入資料...</p>' : ''}
     <div class="grid grid-4" style="margin-bottom:22px">
       ${statCard('⚠️','待處理缺失',openDefs,`${overdue} 逾期`,'var(--red)')}
       ${statCard('📋','追蹤事項',pendingTrk,'','var(--amber)')}
-      ${statCard('👥','現場人力',s.manpower,'','var(--blue)')}
-      ${statCard('✅','安全工時',s.safeHours.toLocaleString(),'','var(--green)')}
+      ${statCard('👥','累計人次',s.totalPeople ? s.totalPeople.toLocaleString() : '—','','var(--blue)')}
+      ${statCard('✅','安全工時',s.totalHours ? s.totalHours.toLocaleString() : '—','','var(--green)')}
     </div>
     <div class="grid grid-4" style="margin-bottom:22px">
-      ${gaugeCard('NCR結案率',dash.ncrClosure,100,dash.ncrClosure>=95?'var(--green)':dash.ncrClosure>=80?'var(--amber)':'var(--red)')}
-      ${gaugeCard('PTW合規率',dash.ptwCompliance,100,'var(--green)')}
-      ${gaugeCard('TBM執行率',dash.tbmRate,100,'var(--blue)')}
-      ${gaugeCard('TRIR',dash.summary.trir,2,'var(--green)')}
+      ${gaugeCard('NCR結案率',kpi.ncrClosure,100,kpi.ncrClosure>=95?'var(--green)':kpi.ncrClosure>=80?'var(--amber)':'var(--red)')}
+      ${gaugeCard('PTW合規率',kpi.ptwCompliance,100,kpi.ptwCompliance>=95?'var(--green)':kpi.ptwCompliance>=80?'var(--amber)':'var(--red)')}
+      ${gaugeCard('TBM執行率',kpi.tbmRate,100,kpi.tbmRate>=98?'var(--green)':kpi.tbmRate>=90?'var(--amber)':'var(--red)')}
+      ${gaugeCard('TRIR',s.trir,2,'var(--green)')}
     </div>
     <div class="grid grid-2">
       <div class="card">
@@ -361,7 +917,29 @@ function renderHome(){
             ${badge(t.status==='done'?'✅ 完成':t.status==='in-progress'?'🔄 進行中':'⏳ 待辦',t.status==='done'?'var(--green)':t.status==='in-progress'?'var(--blue)':'var(--amber)')}
           </div>`).join('')}</div>
       </div>
-    </div>`;
+    </div>
+    ${sheetLoaded && kpi.monthlyManpower.length > 0 ? `
+    <div class="card" style="margin-top:22px">
+      <div class="card-head"><h3>👷 台中/通霄 月出工人次</h3></div>
+      <div style="padding:14px 16px;overflow-x:auto"><table class="tbl">
+        <thead><tr><th>月份</th>${kpi.monthlyManpower.map(m=>`<th style="text-align:center">${m.month.substring(5)}</th>`).join('')}</tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600;color:var(--amber)">🏗 台中</td>${kpi.monthlyManpower.map(m=>`<td style="text-align:center;font-family:var(--mono)">${m.taichung.toLocaleString()}</td>`).join('')}</tr>
+          <tr><td style="font-weight:600;color:var(--green)">🌊 通霄</td>${kpi.monthlyManpower.map(m=>`<td style="text-align:center;font-family:var(--mono)">${m.tongxiao.toLocaleString()}</td>`).join('')}</tr>
+        </tbody>
+      </table></div>
+      <div style="padding:0 16px 16px;height:200px"><canvas id="locMpChart"></canvas></div>
+    </div>` : ''}`;
+  // Location manpower chart
+  if(sheetLoaded && kpi.monthlyManpower.length > 0) {
+    setTimeout(()=>{
+      const lmc=document.getElementById('locMpChart');
+      if(lmc) new Chart(lmc,{type:'bar',data:{labels:kpi.monthlyManpower.map(m=>m.month),datasets:[
+        {label:'台中',data:kpi.monthlyManpower.map(m=>m.taichung),backgroundColor:'#f59e0b',borderRadius:4},
+        {label:'通霄',data:kpi.monthlyManpower.map(m=>m.tongxiao),backgroundColor:'#10b981',borderRadius:4}
+      ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{stacked:true,ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}}},plugins:{legend:{labels:{color:'#8b95a8',font:{size:10}}}}}});
+    },150);
+  }
 }
 
 function statCard(icon,label,value,sub,color){
@@ -380,35 +958,72 @@ function gaugeCard(label,value,max,color){
 // ─── DASHBOARD ───────────────────────────────────────────────
 let trendChart=null,catChart=null;
 function renderDashboard(){
-  const s=dash.summary;const el=document.getElementById('page-dashboard');
+  const range = getDateRange();
+  const startVal = document.getElementById('dashStart')?.value || range.start;
+  const endVal = document.getElementById('dashEnd')?.value || range.end;
+  const srcVal = document.getElementById('dashSource')?.value || 'All';
+  const subVal = document.getElementById('dashSub')?.value || 'All';
+  const locVal = document.getElementById('dashLoc')?.value || 'All';
+
+  const kpi = calcKPI(startVal, endVal, srcVal, subVal, locVal, 'All');
+  const s = kpi.summary;
+  const el=document.getElementById('page-dashboard');
+
+  // Build subcontractor & location options from live data
+  let subOptions = '<option value="All">全部</option>';
+  let locOptions = '<option value="All">全部</option>';
+  if (sheetLoaded) {
+    const subs = new Set(), locs = new Set();
+    gsheetData.allData.forEach(d => { if(d.subcontractor) subs.add(d.subcontractor); if(d.location) locs.add(d.location); });
+    Array.from(subs).sort().forEach(s => subOptions += `<option value="${s}"${s===subVal?' selected':''}>${s}</option>`);
+    Array.from(locs).sort().forEach(l => locOptions += `<option value="${l}"${l===locVal?' selected':''}>${l}</option>`);
+  }
+
   el.innerHTML=`
     <div class="card filter-bar" style="margin-bottom:20px">
       <span style="font-size:12px;font-weight:700;color:var(--amber)">📊 篩選條件</span>
-      <div style="display:flex;align-items:center;gap:8px"><label>起始</label><input type="date" class="inp" value="2025-04-01" style="width:150px;padding:6px 10px;font-size:12px"></div>
-      <div style="display:flex;align-items:center;gap:8px"><label>結束</label><input type="date" class="inp" value="2026-04-12" style="width:150px;padding:6px 10px;font-size:12px"></div>
-      ${badge('SOC: '+s.totalSOC+' | NCR: '+s.totalNCR,'var(--blue)')}
+      <div style="display:flex;align-items:center;gap:8px"><label>起始</label><input type="date" class="inp" id="dashStart" value="${startVal}" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"></div>
+      <div style="display:flex;align-items:center;gap:8px"><label>結束</label><input type="date" class="inp" id="dashEnd" value="${endVal}" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"></div>
+      <div style="display:flex;align-items:center;gap:8px"><label>來源</label><select class="sel" id="dashSource" style="width:130px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"><option value="All"${srcVal==='All'?' selected':''}>全部</option><option value="SOC"${srcVal==='SOC'?' selected':''}>SOC</option><option value="TPC NCR"${srcVal==='TPC NCR'?' selected':''}>TPC NCR</option></select></div>
+      <div style="display:flex;align-items:center;gap:8px"><label>承攬商</label><select class="sel" id="dashSub" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()">${subOptions}</select></div>
+      <div style="display:flex;align-items:center;gap:8px"><label>區域</label><select class="sel" id="dashLoc" style="width:130px;padding:6px 10px;font-size:12px" onchange="renderDashboard()">${locOptions}</select></div>
+      ${sheetLoaded ? badge('LIVE 🟢','var(--green)') : badge('離線','var(--textMut)')}
     </div>
+    ${!sheetLoaded ? '<div style="padding:16px;background:var(--amberBg);border:1px solid var(--amber);border-radius:8px;margin-bottom:16px;font-size:12px;color:var(--amber)">⚠️ Google Sheet 尚未連線，顯示的為即時計算結果。若資料為零請確認 Sheet 已設定為公開。</div>' : ''}
     <div class="grid grid-3" style="margin-bottom:22px">
-      ${[{l:"NCR結案率",v:dash.ncrClosure,t:[80,95]},{l:"PTW合規率",v:dash.ptwCompliance,t:[80,95]},{l:"TBM執行率",v:dash.tbmRate,t:[90,98]}].map(g=>`
+      ${[{l:"NCR結案率",v:kpi.ncrClosure,t:[80,95]},{l:"PTW合規率",v:kpi.ptwCompliance,t:[80,95]},{l:"TBM執行率",v:kpi.tbmRate,t:[90,98]}].map(g=>`
         <div class="card" style="padding:20px;text-align:center">${gaugeCard(g.l,g.v,100,g.v>=g.t[1]?'var(--green)':g.v>=g.t[0]?'var(--amber)':'var(--red)').replace(/<\/?div[^>]*>/g,'')}
         ${badge(g.v>=g.t[1]?'✅ 優秀':g.v>=g.t[0]?'⚠️ 注意':'🔴 需改善',g.v>=g.t[1]?'var(--green)':g.v>=g.t[0]?'var(--amber)':'var(--red)')}</div>`).join('')}
     </div>
     <div class="card" style="margin-bottom:22px;overflow:hidden">
-      <div style="background:linear-gradient(135deg,#0f172a,#1e3a8a);color:white;padding:12px 20px;font-size:14px;font-weight:700">📉 落後指標 Lagging Indicators</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);padding:12px 20px;gap:20px">
-        <div style="display:flex;align-items:center;gap:12px"><span style="font-size:28px">👷</span><div><div style="font-size:10px;color:var(--textMut);font-weight:600">累計總人次</div><div style="font-size:22px;font-weight:800;color:var(--blue);font-family:var(--mono)">${(s.safeHours/8).toLocaleString()}</div></div></div>
-        <div style="display:flex;align-items:center;gap:12px"><span style="font-size:28px">⏱️</span><div><div style="font-size:10px;color:var(--textMut);font-weight:600">累計總工時</div><div style="font-size:22px;font-weight:800;color:var(--blue);font-family:var(--mono)">${s.safeHours.toLocaleString()}</div></div></div>
-      </div>
+      <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--textSec)">📉 落後指標 Lagging Indicators (OSHA)</div>
       <div class="grid grid-5" style="gap:0">
-        ${[{l:"TRIR",v:s.trir,c:"var(--blue)"},{l:"LTIR",v:s.ltir,c:"var(--red)"},{l:"Severity",v:s.severityRate,c:"var(--amber)"},{l:"Near Miss",v:s.nearMissRate,c:"var(--purple)"},{l:"FAR",v:s.far,c:"var(--cyan)"}].map((x,i)=>`
+        ${[
+          {l:"TRIR",v:s.trir.toFixed(2),c:'var(--blue)',sub:`Recordable: ${s.rec}`},
+          {l:"LTIR",v:s.ltir.toFixed(2),c:'var(--red)',sub:`LTI: ${s.lti}`},
+          {l:"嚴重率 Severity",v:s.severityRate.toFixed(2),c:'var(--amber)',sub:`Lost days: ${s.lost}`},
+          {l:"近失率 Near Miss",v:s.nearMissRate.toFixed(2),c:'var(--purple)',sub:`Near Miss: ${s.nm}`},
+          {l:"FAR",v:s.far.toFixed(2),c:'var(--cyan)',sub:`Fatalities: ${s.fat}`}
+        ].map((x,i)=>`
           <div style="padding:20px 12px;text-align:center;border-right:${i<4?'1px solid var(--border)':'none'};border-top:3px solid ${x.c}">
             <div style="font-size:12px;font-weight:700;margin-bottom:2px">${x.l}</div>
-            <div style="font-size:28px;font-weight:900;color:${x.c};font-family:var(--mono)">${x.v.toFixed(2)}</div>
+            <div style="font-size:28px;font-weight:900;color:${x.c};font-family:var(--mono)">${x.v}</div>
+            <div style="font-size:10px;color:var(--textMut);margin-top:4px">${x.sub}</div>
           </div>`).join('')}
+      </div>
+      <div style="display:flex;border-top:1px solid var(--border)">
+        <div style="flex:1;padding:12px 16px;display:flex;align-items:center;gap:10px;border-right:1px solid var(--border)">
+          <span style="font-size:24px">👷</span>
+          <div><div style="font-size:10px;color:var(--textMut);font-weight:600">累計人次</div><div style="font-size:18px;font-weight:800;color:var(--blue);font-family:var(--mono)">${s.totalPeople ? s.totalPeople.toLocaleString() : '—'}</div></div>
+        </div>
+        <div style="flex:1;padding:12px 16px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:24px">⏱️</span>
+          <div><div style="font-size:10px;color:var(--textMut);font-weight:600">累計工時</div><div style="font-size:18px;font-weight:800;color:var(--green);font-family:var(--mono)">${s.totalHours ? s.totalHours.toLocaleString() : '—'}</div></div>
+        </div>
       </div>
     </div>
     <div class="grid grid-6" style="gap:0;margin-bottom:22px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">
-      ${[{l:"SOC缺失",v:s.totalSOC,c:"var(--blue)"},{l:"TPC缺失",v:s.totalNCR,c:"var(--purple)"},{l:"罰款",v:'NT$'+(s.penaltyAmount/1000).toFixed(0)+'K',c:"var(--red)"},{l:"總缺失",v:s.totalDefects,c:"var(--red)"},{l:"優點",v:s.positives,c:"var(--green)"},{l:"結案率",v:s.closureRate+'%',c:"var(--cyan)"}].map((x,i)=>`
+      ${[{l:"SOC缺失",v:s.totalSOC,c:"var(--blue)"},{l:"TPC缺失",v:s.totalNCR,c:"var(--purple)"},{l:"罰款",v:'NT$'+(s.penaltyAmount/1000).toFixed(0)+'K',c:"var(--red)"},{l:"總缺失",v:s.totalDefects,c:"var(--red)"},{l:"優點",v:s.positives,c:"var(--green)"},{l:"結案率",v:s.closureRate.toFixed(1)+'%',c:"var(--cyan)"}].map((x,i)=>`
         <div style="padding:18px 10px;text-align:center;border-right:${i<5?'1px solid var(--border)':'none'}">
           <div style="font-size:10px;color:var(--textMut);font-weight:600;margin-bottom:6px">${x.l}</div>
           <div style="font-size:20px;font-weight:800;color:${x.c};font-family:var(--mono)">${x.v}</div>
@@ -416,56 +1031,94 @@ function renderDashboard(){
     </div>
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢</div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
-      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類</div><div style="height:220px"><canvas id="catCanvas"></canvas></div></div>
+      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類 Top 8</div><div style="height:220px"><canvas id="catCanvas"></canvas></div></div>
     </div>
-    <div class="card" style="padding:18px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:14px">🏆 承包商績效</div>
-      <table class="tbl"><thead><tr><th>排名</th><th>承包商</th><th>評分</th><th>條件</th><th>行為</th><th>結案</th><th>結案率</th></tr></thead>
-      <tbody>${dash.contractorRank.sort((a,b)=>b.score-a.score).map((c,i)=>{const t=c.cond+c.act;const r=t>0?((c.closed/t)*100).toFixed(0):0;return`
-        <tr><td style="font-weight:700;color:${i===0?'var(--amber)':'var(--text)'}">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</td>
-        <td style="font-weight:600">${c.name}</td>
-        <td><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:5px;background:var(--border);border-radius:3px;max-width:80px"><div style="height:100%;border-radius:3px;width:${c.score}%;background:${c.score>=85?'var(--green)':c.score>=70?'var(--amber)':'var(--red)'}"></div></div><span style="font-family:var(--mono);font-weight:600;font-size:11px">${c.score}</span></div></td>
-        <td style="font-family:var(--mono)">${c.cond}</td><td style="font-family:var(--mono)">${c.act}</td><td style="font-family:var(--mono)">${c.closed}</td>
-        <td>${badge(r+'%',r>=80?'var(--green)':r>=60?'var(--amber)':'var(--red)')}</td></tr>`}).join('')}</tbody></table>
+    <div class="grid grid-2" style="margin-bottom:22px">
+      <div class="card">
+        <div class="card-head"><h3>🏆 承包商績效</h3></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>排名</th><th>承包商</th><th>條件</th><th>行為</th><th>合計</th><th>結案率</th></tr></thead>
+        <tbody>${kpi.contractorRank.length > 0 ? kpi.contractorRank.map((c,i)=>{const r=c.total>0?Math.round((c.closed/c.total)*100):0;return`
+          <tr><td style="font-weight:700;color:${i===0?'var(--amber)':'var(--text)'}">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</td>
+          <td style="font-weight:600">${c.name}</td>
+          <td style="font-family:var(--mono)">${c.cond}</td><td style="font-family:var(--mono)">${c.act}</td><td style="font-family:var(--mono);font-weight:700">${c.total}</td>
+          <td>${badge(r+'%',r>=80?'var(--green)':r>=60?'var(--amber)':'var(--red)')}</td></tr>`}).join('') : '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--textMut)">無資料</td></tr>'}</tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>📋 缺失改善追蹤</h3></div>
+        <div class="grid grid-4" style="padding:16px;gap:10px">
+          <div style="text-align:center;padding:12px;background:var(--greenBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">條件已結案</div><div style="font-size:24px;font-weight:800;color:var(--green);font-family:var(--mono)">${s.conditionClosed}</div></div>
+          <div style="text-align:center;padding:12px;background:var(--amberBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">條件未結案</div><div style="font-size:24px;font-weight:800;color:var(--amber);font-family:var(--mono)">${s.conditionOpen}</div></div>
+          <div style="text-align:center;padding:12px;background:var(--blueBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">行為已結案</div><div style="font-size:24px;font-weight:800;color:var(--blue);font-family:var(--mono)">${s.actionClosed}</div></div>
+          <div style="text-align:center;padding:12px;background:var(--redBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">行為未結案</div><div style="font-size:24px;font-weight:800;color:var(--red);font-family:var(--mono)">${s.actionOpen}</div></div>
+        </div>
+      </div>
     </div>`;
+
   // Charts
   setTimeout(()=>{
     if(trendChart)trendChart.destroy();if(catChart)catChart.destroy();
     const tc=document.getElementById('trendCanvas');const cc=document.getElementById('catCanvas');
-    if(tc)trendChart=new Chart(tc,{type:'line',data:{labels:dash.monthly.map(m=>m.m),datasets:[{label:'SOC',data:dash.monthly.map(m=>m.soc),borderColor:'#f59e0b',borderWidth:2,tension:.4,pointRadius:2,fill:false},{label:'NCR',data:dash.monthly.map(m=>m.ncr),borderColor:'#ef4444',borderWidth:2,tension:.4,pointRadius:2,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b95a8',font:{size:10}}}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}}}}});
-    if(cc)catChart=new Chart(cc,{type:'bar',data:{labels:dash.socByCategory.map(c=>c.name),datasets:[{data:dash.socByCategory.map(c=>c.value),backgroundColor:PAL,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#8b95a8',font:{size:10}},grid:{display:false}}}}});
+    if(tc && kpi.monthly.length > 0) trendChart=new Chart(tc,{type:'line',data:{labels:kpi.monthly.map(m=>m.m),datasets:[{label:'SOC',data:kpi.monthly.map(m=>m.soc),borderColor:'#f59e0b',borderWidth:2,tension:.4,pointRadius:3,fill:false},{label:'NCR',data:kpi.monthly.map(m=>m.ncr),borderColor:'#ef4444',borderWidth:2,tension:.4,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b95a8',font:{size:10}}}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}}}}});
+    else if(tc) trendChart=new Chart(tc,{type:'line',data:{labels:['無資料'],datasets:[{data:[0],borderColor:'#5a6478',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+
+    const topCats = kpi.socByCategory.slice(0,8);
+    if(cc && topCats.length > 0) catChart=new Chart(cc,{type:'bar',data:{labels:topCats.map(c=>c.name),datasets:[{data:topCats.map(c=>c.value),backgroundColor:PAL,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#8b95a8',font:{size:10}},grid:{display:false}}}}});
+    else if(cc) catChart=new Chart(cc,{type:'bar',data:{labels:['無資料'],datasets:[{data:[0],backgroundColor:['#5a6478']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
   },100);
 }
 
 // ─── DEFICIENCY ──────────────────────────────────────────────
-let defShowClosed=false;
+let defTab = 'soc'; // 'soc' or 'tpc'
 function renderDeficiency(){
-  const open=state.def.filter(d=>d.status!=='closed'),closed=state.def.filter(d=>d.status==='closed');
-  const list=defShowClosed?closed:open;
   const el=document.getElementById('page-deficiency');
+  if (!sheetLoaded) {
+    el.innerHTML='<div style="padding:40px;text-align:center;color:var(--textMut)">載入中... 請等待 Google Sheet 連線完成</div>';
+    return;
+  }
+  const g = gsheetData;
+  const socOpen = g.allData.filter(d => d.source === 'SOC' && d.type !== '優點' && !d.solved);
+  const tpcOpen = g.allData.filter(d => d.source === 'TPC NCR' && d.type !== '優點' && !d.solved);
+
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div style="display:flex;gap:6px">
-        <button class="pill-btn" style="background:${!defShowClosed?'var(--amberBg)':'var(--card)'};color:${!defShowClosed?'var(--amber)':'var(--textSec)'}" onclick="defShowClosed=false;renderDeficiency()">待處理 (${open.length})</button>
-        <button class="pill-btn" style="background:${defShowClosed?'var(--greenBg)':'var(--card)'};color:${defShowClosed?'var(--green)':'var(--textSec)'}" onclick="defShowClosed=true;renderDeficiency()">已結案 (${closed.length})</button>
+        <button class="pill-btn" style="background:${defTab==='soc'?'var(--amberBg)':'var(--card)'};color:${defTab==='soc'?'var(--amber)':'var(--textSec)'}" onclick="defTab='soc';renderDeficiency()">SOC 未結案 (${socOpen.length})</button>
+        <button class="pill-btn" style="background:${defTab==='tpc'?'var(--blueBg)':'var(--card)'};color:${defTab==='tpc'?'var(--blue)':'var(--textSec)'}" onclick="defTab='tpc';renderDeficiency()">TPC NCR 未結案 (${tpcOpen.length})</button>
       </div>
-      ${isAdmin?'<button class="btn btn-pri" onclick="addDeficiency()">+ 新增缺失單</button>':''}
     </div>
-    <div class="card"><div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>編號</th><th>日期</th><th>地點</th><th>承包商</th><th>類別</th><th>說明</th><th>嚴重度</th><th>狀態</th><th>截止日</th><th></th></tr></thead>
-      <tbody>${list.map(d=>{const od=isOverdue(d);return`
-        <tr style="background:${od?'rgba(239,68,68,.05)':'transparent'}">
-          <td style="font-family:var(--mono);font-weight:600;font-size:11px;color:var(--amber)">${d.no}</td>
-          <td style="white-space:nowrap">${d.date}</td><td>${d.location}</td>
-          <td style="font-weight:600">${d.contractor}</td><td>${d.category}</td>
-          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.description}</td>
-          <td>${badge(SEV_LABEL[d.severity],SEV_COLOR[d.severity])}</td>
-          <td>${badge(STATUS_LABEL[d.status]+(od?' ⚠️':''),STATUS_COLOR[d.status])}</td>
-          <td style="white-space:nowrap;color:${od?'var(--red)':'var(--textSec)'}">${d.dueDate}</td>
-          <td><button class="btn btn-ghost btn-sm" onclick="viewDef(${d.id})">👁 詳情</button></td>
-        </tr>`}).join('')}
-      ${list.length===0?`<tr><td colspan="10" style="text-align:center;padding:36px;color:var(--textMut)">${defShowClosed?'無已結案資料':'目前無待處理缺失 🎉'}</td></tr>`:''}</tbody>
-    </table></div></div>`;
+    ${defTab === 'soc' ? renderSOCTable(socOpen) : renderTPCTable(tpcOpen)}`;
+}
+
+function renderSOCTable(items) {
+  return `<div class="card"><div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>#</th><th>日期</th><th>承攬商</th><th>地點</th><th>類型</th><th>危害種類</th><th>說明</th></tr></thead>
+    <tbody>${items.length > 0 ? items.map((d,i) => `
+      <tr>
+        <td style="font-family:var(--mono);font-weight:600;color:var(--amber)">${i+1}</td>
+        <td style="white-space:nowrap">${d.date||'-'}</td>
+        <td style="font-weight:600">${d.subcontractor||'-'}</td>
+        <td>${d.location||'-'}</td>
+        <td>${badge(d.defectCategory==='Condition'?'條件':'行為',d.defectCategory==='Condition'?'var(--amber)':'var(--red)')}</td>
+        <td>${d.category||'-'}</td>
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.description||'').replace(/"/g,'&quot;')}">${d.description||'-'}</td>
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:36px;color:var(--textMut)">全部已結案 🎉</td></tr>'}</tbody>
+  </table></div></div>`;
+}
+
+function renderTPCTable(items) {
+  return `<div class="card"><div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>管登編號</th><th>日期</th><th>承攬商</th><th>開立總類</th><th>缺失種類</th><th>內容</th><th>罰款</th></tr></thead>
+    <tbody>${items.length > 0 ? items.map(d => `
+      <tr>
+        <td style="font-family:var(--mono);font-weight:600;color:var(--blue)">${d.ncrNo||'-'}</td>
+        <td style="white-space:nowrap">${d.date||'-'}</td>
+        <td style="font-weight:600">${d.subcontractor||'-'}</td>
+        <td>${badge(d.defectCategory==='Condition'?'條件':d.defectCategory==='Action'?'行為':d.type,d.defectCategory==='Condition'?'var(--amber)':d.type==='罰單'?'var(--red)':'var(--red)')}</td>
+        <td>${d.category||'-'}</td>
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.description||'').replace(/"/g,'&quot;')}">${d.description||'-'}</td>
+        <td style="font-family:var(--mono);color:${d.penaltyAmount?'var(--red)':'var(--textMut)'}">${d.penaltyAmount ? 'NT$'+d.penaltyAmount.toLocaleString() : '-'}</td>
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:36px;color:var(--textMut)">全部已結案 🎉</td></tr>'}</tbody>
+  </table></div></div>`;
 }
 
 // ─── DOCUMENTS ───────────────────────────────────────────────
@@ -477,10 +1130,22 @@ function renderDocuments(){
       <div class="card">${sec.items.map((doc,di)=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:${di<sec.items.length-1?'1px solid rgba(30,39,56,.3)':'none'}">
           <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;min-width:90px">${doc.code}</span><span style="font-size:12px">${doc.name}</span></div>
-          <div style="display:flex;align-items:center;gap:8px">${badge(doc.status==='complete'?'✅ 完整':'🔄 更新中',doc.status==='complete'?'var(--green)':'var(--amber)')}${isAdmin?`<button class="btn-ghost btn-sm" onclick="delDoc(${si},${di})">🗑</button>`:''}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${badge(doc.status==='complete'?'✅ 完整':'🔄 更新中',doc.status==='complete'?'var(--green)':'var(--amber)')}
+            ${doc.fileUrl?`<a href="${doc.fileUrl}" target="_blank" class="btn btn-sm btn-def" style="text-decoration:none" title="下載/開啟檔案">📥 下載</a>`:`<span style="font-size:10px;color:var(--textMut)">未設連結</span>`}
+            ${isAdmin?`<button class="btn-ghost btn-sm" onclick="editDocItem(${si},${di})" title="編輯">✏️</button><button class="btn-ghost btn-sm" onclick="delDoc(${si},${di})" title="刪除">🗑</button>`:''}
+          </div>
         </div>`).join('')}
         ${isAdmin?`<div style="padding:8px 16px;border-top:1px solid rgba(30,39,56,.3)"><button class="btn btn-ghost btn-sm" onclick="addDocItem(${si})">+ 新增文件</button></div>`:''}</div>
-    </div>`).join('')}`;
+    </div>`).join('')}
+    <div class="card" style="padding:16px;margin-top:10px;border-left:3px solid var(--amber)">
+      <div style="font-size:12px;color:var(--textSec);line-height:1.8">
+        <strong style="color:var(--amber)">💡 檔案連結使用方式：</strong><br>
+        ① PDF/文件 → 上傳至 <strong>Google Drive</strong>，右鍵「共用」→「知道連結的人都可以檢視」→ 複製連結貼入<br>
+        ② 若要直接下載，將 Google Drive 連結中的 <code>/view</code> 改成 <code>/export?format=pdf</code><br>
+        ③ HTML工具檔 → 上傳到 GitHub repo 的 <code>tools/</code> 資料夾，使用 <code>https://vivaaichat.github.io/safety-e-system/tools/檔名.html</code>
+      </div>
+    </div>`;
 }
 
 // ─── TOOLS ───────────────────────────────────────────────────
@@ -503,11 +1168,13 @@ function renderTools(){
     <p style="font-size:11px;color:var(--textMut);margin-bottom:14px">連接Google Apps Script</p>
     <div class="field"><label>URL</label><input class="inp" id="gasUrlInp" placeholder="https://script.google.com/macros/s/..."></div>
     <button class="btn btn-pri" onclick="localStorage.setItem('gasUrl',document.getElementById('gasUrlInp').value);toast('已儲存')">儲存</button></div>`;return}
-  // custom tool
   const ct=state.tools.find(t=>t.id===activeTool&&t.type==='custom');
-  if(ct){el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
+  if(ct){const iframeSrc=ct.htmlUrl?ct.htmlUrl:(ct.htmlContent?'':'');
+    el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
     <div class="card" style="margin-top:14px;overflow:hidden"><div style="padding:12px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px">${ct.name}</div>
-    ${ct.htmlContent?`<iframe srcdoc="${ct.htmlContent.replace(/"/g,'&quot;')}" style="width:100%;height:600px;border:none" sandbox="allow-scripts allow-forms"></iframe>`:'<div style="padding:40px;text-align:center;color:var(--textMut)">尚未上傳HTML</div>'}</div>`;return}
+    ${ct.htmlUrl?`<iframe src="${ct.htmlUrl}" style="width:100%;height:600px;border:none" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>`
+    :ct.htmlContent?`<iframe srcdoc="${ct.htmlContent.replace(/"/g,'&quot;')}" style="width:100%;height:600px;border:none" sandbox="allow-scripts allow-forms"></iframe>`
+    :'<div style="padding:40px;text-align:center;color:var(--textMut)">尚未設定HTML網址或上傳檔案</div>'}</div>`;return}
 
   el.innerHTML=`${isAdmin?'<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn btn-pri" onclick="addTool()">+ 新增工具</button></div>':''}
     <div class="grid grid-3">${state.tools.map(t=>`
@@ -516,7 +1183,7 @@ function renderTools(){
           <div style="width:42px;height:42px;border-radius:10px;background:${t.color||'var(--amber)'}15;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${t.icon||'🔧'}</div>
           <div><div style="font-size:13px;font-weight:700;margin-bottom:3px">${t.name}</div><div style="font-size:11px;color:var(--textMut)">${t.desc}</div></div>
         </div>
-        ${isAdmin&&t.type==='custom'?`<button class="btn-ghost btn-sm" style="position:absolute;top:8px;right:8px" onclick="event.stopPropagation();delTool('${t.id}')">🗑</button>`:''}
+        ${isAdmin?`<button class="btn-ghost btn-sm" style="position:absolute;top:8px;right:8px" onclick="event.stopPropagation();delTool('${t.id}')">🗑</button>`:''}
       </div>`).join('')}</div>`;
 }
 function calcSling(){
@@ -528,7 +1195,6 @@ function calcSling(){
 
 // ─── TRACKING ────────────────────────────────────────────────
 function renderTracking(){
-  const cycle={pending:'in-progress','in-progress':'done',done:'pending'};
   const el=document.getElementById('page-tracking');
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -559,7 +1225,7 @@ function renderSchedule(){
         <input type="month" class="inp" value="${sc.month}" onchange="state.schedule.month=this.value;saveState();renderSchedule()" style="width:160px;padding:6px 10px">
         <div style="display:flex;gap:6px">${Object.entries(SCHED_LABEL).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--textSec)"><span style="width:12px;height:12px;border-radius:3px;background:${SCHED_COLOR[k]};display:inline-block"></span>${v}</span>`).join('')}</div>
       </div>
-      ${isAdmin?'<button class="btn btn-pri" onclick="addSchedulePerson()">+ 新增人員</button>':''}
+      ${isAdmin?'<div style="display:flex;gap:6px"><button class="btn btn-pri" onclick="addSchedulePerson()">+ 新增人員</button><button class="btn btn-def" onclick="addTeamMember()">👥 管理團隊</button></div>':''}
     </div>
     <div class="card" style="overflow:auto"><table class="sched-table">
       <thead><tr><th class="sched-name-head" style="padding:8px 10px">人員</th>
@@ -599,7 +1265,7 @@ function delAnn(id){state.ann=state.ann.filter(a=>a.id!==id);saveState();renderP
 function addTracking(){
   showGenModal('📋 新增追蹤事項',`
     <div class="field"><label>事項</label><input class="inp" id="trkItem" placeholder="事項內容..."></div>
-    <div class="field"><label>負責人</label><div style="display:flex;flex-wrap:wrap;gap:4px" id="trkAssignees">${TEAM.map(p=>`<button class="pill-btn" style="background:transparent;border:1px solid var(--border);color:var(--textSec);font-size:11px" onclick="this.dataset.sel=this.dataset.sel==='1'?'':'1';this.style.background=this.dataset.sel==='1'?'var(--amberBg)':'transparent';this.style.color=this.dataset.sel==='1'?'var(--amber)':'var(--textSec)'" data-name="${p}">${p}</button>`).join('')}</div></div>
+    <div class="field"><label>負責人</label><div style="display:flex;flex-wrap:wrap;gap:4px" id="trkAssignees">${getTeam().map(p=>`<button class="pill-btn" style="background:transparent;border:1px solid var(--border);color:var(--textSec);font-size:11px" onclick="this.dataset.sel=this.dataset.sel==='1'?'':'1';this.style.background=this.dataset.sel==='1'?'var(--amberBg)':'transparent';this.style.color=this.dataset.sel==='1'?'var(--amber)':'var(--textSec)'" data-name="${p}">${p}</button>`).join('')}</div></div>
     <div class="field"><label>期限</label><input class="inp" type="date" id="trkDeadline"></div>
     <div class="field"><label>優先度</label><select class="sel" id="trkPri"><option value="high">🔴 高</option><option value="medium" selected>🟡 中</option><option value="low">🟢 低</option></select></div>
     <div class="field"><label>備註</label><div class="rich-editor"><div class="rich-toolbar"><button onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button><button onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button></div><div contenteditable class="rich-content" id="trkNote" data-placeholder="備註..."></div></div></div>
@@ -670,18 +1336,30 @@ function addDocItem(si){showGenModal('新增文件',`
   <div class="field"><label>編號</label><input class="inp" id="diCode" placeholder="NMDC-HSE-007"></div>
   <div class="field"><label>名稱</label><input class="inp" id="diName" placeholder="文件名稱"></div>
   <div class="field"><label>狀態</label><select class="sel" id="diStatus"><option value="complete">完整</option><option value="in-progress" selected>更新中</option></select></div>
+  <div class="field"><label>檔案連結（Google Drive / 網址）</label><input class="inp" id="diUrl" placeholder="https://drive.google.com/file/d/..."></div>
+  <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">貼上 Google Drive 分享連結或任何可下載的網址</p>
   <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDocItem(${si})">新增</button>`)}
-function saveDocItem(si){const c=document.getElementById('diCode').value,n=document.getElementById('diName').value,s=document.getElementById('diStatus').value;if(!c||!n)return;state.docs[si].items.push({code:c,name:n,status:s});saveState();closeModal('genModal');toast('已新增');renderDocuments()}
+function saveDocItem(si){const c=document.getElementById('diCode').value,n=document.getElementById('diName').value,s=document.getElementById('diStatus').value,u=document.getElementById('diUrl').value;if(!c||!n)return;state.docs[si].items.push({code:c,name:n,status:s,fileUrl:u});saveState();closeModal('genModal');toast('已新增');renderDocuments()}
+function editDocItem(si,di){const doc=state.docs[si].items[di];showGenModal('編輯文件',`
+  <div class="field"><label>編號</label><input class="inp" id="eiCode" value="${doc.code}"></div>
+  <div class="field"><label>名稱</label><input class="inp" id="eiName" value="${doc.name}"></div>
+  <div class="field"><label>狀態</label><select class="sel" id="eiStatus"><option value="complete"${doc.status==='complete'?' selected':''}>完整</option><option value="in-progress"${doc.status==='in-progress'?' selected':''}>更新中</option></select></div>
+  <div class="field"><label>檔案連結（Google Drive / 網址）</label><input class="inp" id="eiUrl" value="${doc.fileUrl||''}"></div>
+  <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">貼上 Google Drive 分享連結，點擊「下載」即可直接開啟/下載</p>
+  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveEditDoc(${si},${di})">儲存</button>`)}
+function saveEditDoc(si,di){state.docs[si].items[di]={code:document.getElementById('eiCode').value,name:document.getElementById('eiName').value,status:document.getElementById('eiStatus').value,fileUrl:document.getElementById('eiUrl').value};saveState();closeModal('genModal');toast('已更新');renderDocuments()}
 function delDoc(si,di){state.docs[si].items.splice(di,1);saveState();renderDocuments();toast('已刪除')}
 
 function addTool(){showGenModal('新增工具',`
   <div class="field"><label>工具名稱</label><input class="inp" id="tlName" placeholder="名稱"></div>
   <div class="field"><label>說明</label><input class="inp" id="tlDesc" placeholder="描述"></div>
-  <div class="field"><label>上傳 HTML 檔案</label><input type="file" accept=".html,.htm" id="tlFile" style="font-size:12px;color:var(--textSec)"><div id="tlFileStatus" style="margin-top:6px"></div></div>
+  <div class="field"><label>方式一：HTML 網址（推薦 — 放在 GitHub repo 的 tools/ 資料夾）</label><input class="inp" id="tlUrl" placeholder="例: tools/bsa-form.html 或完整網址"></div>
+  <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">將 HTML 檔上傳到 repo 的 tools/ 資料夾，輸入相對路徑即可（無容量限制）</p>
+  <div class="field"><label>方式二：直接上傳 HTML 檔案（存在瀏覽器，有容量限制）</label><input type="file" accept=".html,.htm" id="tlFile" style="font-size:12px;color:var(--textSec)"><div id="tlFileStatus" style="margin-top:6px"></div></div>
   <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTool()">新增工具</button>`);
   setTimeout(()=>{document.getElementById('tlFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{document.getElementById('tlFile').dataset.content=ev.target.result;document.getElementById('tlFileStatus').innerHTML=badge('✅ 已載入 '+(ev.target.result.length/1024).toFixed(1)+'KB','var(--green)')};r.readAsText(f)}},0);
 }
-function saveTool(){const n=document.getElementById('tlName').value,d=document.getElementById('tlDesc').value,h=document.getElementById('tlFile').dataset?.content||'';if(!n)return;state.tools.push({id:Date.now().toString(),name:n,desc:d,icon:'🔧',color:'var(--cyan)',type:'custom',htmlContent:h});saveState();closeModal('genModal');toast('已新增');renderTools()}
+function saveTool(){const n=document.getElementById('tlName').value,d=document.getElementById('tlDesc').value,u=document.getElementById('tlUrl').value,h=document.getElementById('tlFile').dataset?.content||'';if(!n)return;state.tools.push({id:Date.now().toString(),name:n,desc:d,icon:'🔧',color:'var(--cyan)',type:'custom',htmlUrl:u,htmlContent:h});saveState();closeModal('genModal');toast('已新增');renderTools()}
 function delTool(id){state.tools=state.tools.filter(t=>t.id!==id);saveState();renderTools();toast('已刪除')}
 
 // ═══════════════════════════════════════════════════════════════
@@ -690,11 +1368,9 @@ function delTool(id){state.tools=state.tools.filter(t=>t.id!==id);saveState();re
 document.addEventListener('DOMContentLoaded',function(){
   loadState();
   document.getElementById('todayDate').textContent=new Date().toLocaleDateString('zh-TW');
-  // Try Google Sheet connection
-  fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=SOC`)
-    .then(r=>r.text()).then(t=>{try{JSON.parse(t.replace(/^[^(]*\(/,'').replace(/\);?\s*$/,''));document.getElementById('sheetStatus').innerHTML='<span style="color:var(--green)">● 雲端已連線</span>'}catch{document.getElementById('sheetStatus').innerHTML='<span style="color:var(--textMut)">● 本地模式</span>'}})
-    .catch(()=>{document.getElementById('sheetStatus').innerHTML='<span style="color:var(--textMut)">● 本地模式</span>'});
   buildNav();updateAdminUI();goPage('home');
+  // Load live data from Google Sheet
+  loadGoogleSheetData();
 });
 </script>
 </body>
