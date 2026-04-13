@@ -428,9 +428,13 @@ function parseGvizDate(val) {
   if (val === null || val === undefined) return '';
   if (typeof val === 'string' && val.startsWith('Date(')) {
     const parts = val.replace('Date(','').replace(')','').split(',').map(Number);
-    return new Date(parts[0], parts[1], parts[2]||1).toISOString().slice(0,10);
+    const y = parts[0], m = parts[1]+1, d = parts[2]||1;
+    return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
   }
-  if (typeof val === 'number') return new Date((val - 25569) * 86400000).toISOString().slice(0,10);
+  if (typeof val === 'number') {
+    const dt = new Date((val - 25569) * 86400000 + 43200000); // +12h to avoid timezone shift
+    return dt.getUTCFullYear()+'-'+String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+String(dt.getUTCDate()).padStart(2,'0');
+  }
   return String(val);
 }
 
@@ -601,10 +605,14 @@ function processSheetData(socRows, tpcRows, mpData) {
 
     const issueCat = row.issue_category || '';
     let type = '缺點', dc = 'Condition';
-    if (issueCat.includes('罰單')) type = '罰單';
-    else if (issueCat.includes('優點') || issueCat.includes('Good practice')) { type = '優點'; dc = 'Positive'; }
+    // 優點判定
+    if (issueCat.includes('優點') || issueCat.includes('Good practice')) { type = '優點'; dc = 'Positive'; }
+    // 其餘全部歸為缺點（TPC、POE、罰單、不安全行為、不安全條件等）
+    // defectCategory 細分
     if (issueCat.includes('不安全行為') || issueCat.includes('Unsafe action')) dc = 'Action';
-    if (issueCat.includes('不安全條件') || issueCat.includes('Unsafe condition')) dc = 'Condition';
+    else if (issueCat.includes('不安全條件') || issueCat.includes('Unsafe condition')) dc = 'Condition';
+    // 罰單標記（仍算缺失，另外記錄罰款金額）
+    const isPenalty = issueCat.includes('罰單');
 
     const defectType = row.defect_type || row.other_category || '';
     const desc = row.description || '';
@@ -615,7 +623,8 @@ function processSheetData(socRows, tpcRows, mpData) {
       id:'TPC-'+idx, date:row.issue_date||'', type, defectCategory:dc,
       subcontractor:matchedSub||contractor, category:defectType, location:'',
       description:desc, solved:isClosed, lsr:false,
-      penaltyAmount, ncrNo:row.ncr_no||'', source:'TPC NCR',
+      penaltyAmount, isPenalty, ncrNo:row.ncr_no||'', source:'TPC NCR',
+      issueCat,
       isPTWViolation: dtStr.includes('工作許可') || dtStr.includes('ptw') || dtStr.includes('permit'),
       rawRow: row
     });
@@ -656,16 +665,16 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
     (subFilter === 'All' || item.subcontractor === subFilter) &&
     (locFilter === 'All' || item.location === locFilter)
   );
-  const allDefects = base.filter(d => d.type === '缺點' || d.type === '罰單');
+  const allDefects = base.filter(d => d.type === '缺點');
   const condDef = allDefects.filter(d => d.defectCategory === 'Condition');
   const actDef  = allDefects.filter(d => d.defectCategory === 'Action');
   let filtered = dcFilter && dcFilter !== 'All' ? base.filter(i => i.type === '優點' || i.defectCategory === dcFilter) : base;
-  const defects   = filtered.filter(d => d.type === '缺點' || d.type === '罰單');
+  const defects   = filtered.filter(d => d.type === '缺點');
   const positives = filtered.filter(d => d.type === '優點');
   const closed    = defects.filter(d => d.solved);
-  const socDef    = filtered.filter(d => d.source === 'SOC' && (d.type === '缺點' || d.type === '罰單'));
-  const tpcDef    = filtered.filter(d => d.source === 'TPC NCR' && (d.type === '缺點' || d.type === '罰單'));
-  const tpcPen    = filtered.filter(d => d.source === 'TPC NCR' && d.type === '罰單');
+  const socDef    = filtered.filter(d => d.source === 'SOC' && d.type === '缺點');
+  const tpcDef    = filtered.filter(d => d.source === 'TPC NCR' && d.type === '缺點');
+  const tpcPen    = filtered.filter(d => d.source === 'TPC NCR' && d.isPenalty);
   const lsrViol   = defects.filter(d => d.lsr);
 
   let totalPenalty = 0;
@@ -695,12 +704,12 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   const socByCategory = Object.entries(catStats).map(([name, v]) => ({name, value:v.total, condition:v.condition, action:v.action})).sort((a,b) => b.value - a.value);
 
   const monthlyStats = {};
-  base.forEach(item => { if (item.date && (item.type === '缺點' || item.type === '罰單')) { const m = item.date.substring(0,7); if (!monthlyStats[m]) monthlyStats[m] = {soc:0,ncr:0}; if(item.source==='SOC')monthlyStats[m].soc++; else monthlyStats[m].ncr++; }});
+  base.forEach(item => { if (item.date && item.type === '缺點') { const m = item.date.substring(0,7); if (!monthlyStats[m]) monthlyStats[m] = {soc:0,ncr:0}; if(item.source==='SOC')monthlyStats[m].soc++; else monthlyStats[m].ncr++; }});
   const monthly = Object.entries(monthlyStats).sort((a,b)=>a[0].localeCompare(b[0])).map(([m, v]) => ({m, soc:v.soc, ncr:v.ncr}));
 
   const subStats = {};
   filtered.forEach(item => {
-    if (item.subcontractor && (item.type === '缺點' || item.type === '罰單')) {
+    if (item.subcontractor && item.type === '缺點') {
       if (!subStats[item.subcontractor]) subStats[item.subcontractor] = {name:item.subcontractor,soc:0,ncr:0,cond:0,act:0,closed:0,total:0};
       subStats[item.subcontractor].total++;
       if(item.defectCategory==='Condition')subStats[item.subcontractor].cond++; else if(item.defectCategory==='Action')subStats[item.subcontractor].act++;
@@ -1064,7 +1073,7 @@ function renderTPCTable(items) {
         <td style="font-family:var(--mono);font-weight:600;color:var(--blue)">${d.ncrNo||'-'}</td>
         <td style="white-space:nowrap">${d.date||'-'}</td>
         <td style="font-weight:600">${d.subcontractor||'-'}</td>
-        <td>${badge(d.defectCategory==='Condition'?'條件':d.defectCategory==='Action'?'行為':d.type,d.defectCategory==='Condition'?'var(--amber)':d.type==='罰單'?'var(--red)':'var(--red)')}</td>
+        <td>${badge(d.defectCategory==='Condition'?'條件':d.defectCategory==='Action'?'行為':'缺失',d.defectCategory==='Condition'?'var(--amber)':d.defectCategory==='Action'?'var(--red)':'var(--blue)')}${d.isPenalty?' '+badge('罰單','var(--red)'):''}</td>
         <td>${d.category||'-'}</td>
         <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.description||'').replace(/"/g,'&quot;')}">${d.description||'-'}</td>
         <td style="font-family:var(--mono);color:${d.penaltyAmount?'var(--red)':'var(--textMut)'}">${d.penaltyAmount ? 'NT$'+d.penaltyAmount.toLocaleString() : '-'}</td>
