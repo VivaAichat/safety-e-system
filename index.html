@@ -134,25 +134,9 @@ a{color:var(--amber);text-decoration:none}
 .loading-bar .fill{height:100%;background:linear-gradient(90deg,var(--amber),var(--green));animation:loadAni 1.5s ease infinite;width:40%;border-radius:2px}
 @keyframes loadAni{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
 
-/* SYNC INDICATOR */
-.sync-spin{display:inline-block;animation:spin 1s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
 /* Responsive */
 @media(max-width:1200px){.grid-6{grid-template-columns:repeat(3,1fr)}.grid-5{grid-template-columns:repeat(3,1fr)}.grid-3{grid-template-columns:1fr 1fr}}
-@media(max-width:768px){
-  .sidebar{position:fixed;z-index:200;width:230px;left:0;top:0;transform:translateX(-100%);transition:transform .3s ease}
-  .sidebar.mobile-open{transform:translateX(0)}
-  .sidebar.collapsed{transform:translateX(-100%);width:230px}
-  .mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:199}
-  .mobile-overlay.show{display:block}
-  .mobile-ham{display:flex!important}
-  .main{padding:14px 12px}
-  .grid-2,.grid-3{grid-template-columns:1fr}
-  .grid-6,.grid-5,.grid-4{grid-template-columns:repeat(2,1fr)}
-  .header{flex-direction:column;align-items:flex-start;gap:8px}
-  .filter-bar{flex-direction:column;align-items:flex-start;gap:10px}
-}
+@media(max-width:768px){.sidebar{position:fixed;z-index:200}.sidebar.collapsed{width:0;border:none}.main{padding:14px}.grid-2,.grid-3{grid-template-columns:1fr}.grid-6,.grid-5{grid-template-columns:repeat(2,1fr)}.header{flex-direction:column;align-items:flex-start;gap:8px}}
 </style>
 </head>
 <body>
@@ -174,19 +158,15 @@ a{color:var(--amber);text-decoration:none}
 </aside>
 
 <!-- ═══════ MAIN ═══════ -->
-<div class="mobile-overlay" id="mobileOverlay" onclick="closeMobile()"></div>
 <div class="main">
   <header class="header">
-    <div style="display:flex;align-items:center;gap:10px">
-      <button class="mobile-ham" id="hamBtn" onclick="openMobile()" style="display:none;background:none;border:none;color:var(--amber);padding:6px;font-size:22px;line-height:1">☰</button>
-      <div>
-        <h1 id="pageTitle">首頁 Home</h1>
-        <p class="header-sub">NMDC Energy — Tongxiao Power Plant Phase II · <span id="todayDate"></span> <span id="sheetStatus" style="margin-left:8px"></span> <span id="gasStatus" style="margin-left:6px"></span></p>
-      </div>
+    <div>
+      <h1 id="pageTitle">首頁 Home</h1>
+      <p class="header-sub">NMDC Energy — Tongxiao Power Plant Phase II · <span id="todayDate"></span> <span id="sheetStatus" style="margin-left:8px"></span></p>
     </div>
+    <div id="adminBadge" style="display:none"><span class="badge" style="color:var(--green);background:var(--greenBg)">ADMIN</span></div>
     <div style="display:flex;gap:8px;align-items:center">
-      <div id="adminBadge" style="display:none"><span class="badge" style="color:var(--green);background:var(--greenBg)">ADMIN</span></div>
-      <button class="btn btn-def btn-sm" onclick="refreshAll()" title="重新整理資料">🔄 重新整理</button>
+      <button class="btn btn-def btn-sm" onclick="refreshData()" title="重新整理資料">🔄 重新整理</button>
     </div>
   </header>
 
@@ -227,11 +207,9 @@ a{color:var(--amber);text-decoration:none}
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// CONFIG
+// STATE & CONFIG
 // ═══════════════════════════════════════════════════════════════
-const SHEET1_ID = "19KlNuUTQO4_qzP6mYEAxh97La-RjjcvpyMC5c8K7Pj8";  // 數據源（唯讀）
-const SHEET2_ID = "1AnSjD28WmpLRoDcUPWuyl5tPfU5Qt4cFiP0oaoLBFCg";  // 系統資料（讀寫）
-
+const SHEET_ID = "19KlNuUTQO4_qzP6mYEAxh97La-RjjcvpyMC5c8K7Pj8";
 let TEAM = ["Sam","Daniel","Yong","Jin","Ben","Elson","Jeffrey","Vic","Noah","Jet","Sue"];
 const CONTRACTORS = ["海義 HiE","美綺 Magitech","高虎 GAC","兆濰/茂富","天力 Tianli"];
 const LOCATIONS = ["台中 Taichung","通霄 Tongxiao","天力 Tianli","離岸 Offshore"];
@@ -247,162 +225,40 @@ const SCHED_LABEL = {R:"上班",H:"休假","台":"台中","霄":"通霄"};
 
 let isAdmin = false;
 let currentPage = "home";
-
-// ═══════════════════════════════════════════════════════════════
-// STATE — Sheet 2 data (synced via GAS)
-// ═══════════════════════════════════════════════════════════════
-let cloudData = {
-  announcements: [],
-  tracking: [],
-  documents: [],
-  schedule: []
-};
-
-// Local-only state (tools, custom team)
-let localState = {
+let state = {
+  ann: [{id:1,date:"2026-04-12",content:"本週五進行全線安全巡檢，請各承包商配合準備。",priority:"high"},{id:2,date:"2026-04-10",content:"新版PTW申請流程已更新，請至文件區下載。",priority:"medium"}],
+  trk: [{id:1,item:"高虎 吊掛作業SOP更新",assignees:["陳工程師","李主管"],deadline:"2026-04-15",priority:"high",status:"pending",note:""},{id:2,item:"海義 施工架自主檢查紀錄補齊",assignees:["王工程師"],deadline:"2026-04-20",priority:"medium",status:"in-progress",note:""},{id:3,item:"茂富 LOTO教育訓練執行",assignees:["張專員"],deadline:"2026-04-18",priority:"low",status:"done",note:"已於4/5完成"}],
+  def: [
+    {id:1,no:"TPC-2026-001",date:"2026-04-01",location:"通霄",contractor:"海義 HiE",category:"高處作業",description:"施工架護欄缺失，人員有墜落風險",status:"open",dueDate:"2026-04-10",response:""},
+    {id:2,no:"TPC-2026-002",date:"2026-04-03",location:"台中",contractor:"高虎 GAC",category:"吊掛作業",description:"吊掛信號手未配戴反光背心",status:"closed",dueDate:"2026-04-08",response:"已立即改善並加強宣導"},
+    {id:3,no:"TPC-2026-003",date:"2026-04-07",location:"通霄",contractor:"美綺 Magitech",category:"電氣安全",description:"臨時用電配線未固定，有觸電風險",status:"open",dueDate:"2026-04-14",response:""},
+    {id:4,no:"TPC-2026-004",date:"2026-04-09",location:"通霄",contractor:"兆濰/茂富",category:"個人防護",description:"未穿著安全鞋進入工區",status:"open",dueDate:"2026-04-16",response:""}
+  ],
+  docs: [
+    {sec:"安全管理程序 Safety Procedures",items:[{code:"NMDC-HSE-001",name:"HSE Management Plan",status:"complete",fileUrl:""},{code:"NMDC-HSE-002",name:"PTW Procedure",status:"complete",fileUrl:""},{code:"NMDC-HSE-003",name:"LOTO Procedure",status:"complete",fileUrl:""},{code:"NMDC-HSE-004",name:"Lifting & Rigging Procedure",status:"in-progress",fileUrl:""},{code:"NMDC-HSE-005",name:"Confined Space Entry",status:"complete",fileUrl:""},{code:"NMDC-HSE-006",name:"Hot Work Procedure",status:"complete",fileUrl:""}]},
+    {sec:"ISP 個別安全施工計畫 Individual Safety Procedure",items:[{code:"ISP-001",name:"海義 管線焊接 ISP",status:"complete",fileUrl:""},{code:"ISP-002",name:"高虎 吊掛作業 ISP",status:"in-progress",fileUrl:""},{code:"ISP-003",name:"美綺 電氣施工 ISP",status:"complete",fileUrl:""},{code:"ISP-004",name:"天力 風機安裝 ISP",status:"in-progress",fileUrl:""}]},
+    {sec:"風險評估 Risk Assessment",items:[{code:"NMDC-RA-001",name:"Submarine Pipeline Installation RA",status:"complete",fileUrl:""},{code:"NMDC-RA-002",name:"JSG High Pressure Grouting RA",status:"complete",fileUrl:""},{code:"NMDC-RA-003",name:"Marine Dredging RA",status:"in-progress",fileUrl:""}]},
+    {sec:"教育訓練 Training Materials",items:[{code:"NMDC-TR-001",name:"新進人員安全教育",status:"complete",fileUrl:""},{code:"NMDC-TR-002",name:"LOTO Training (中/英/泰)",status:"complete",fileUrl:""},{code:"NMDC-TR-003",name:"手部安全 Hand Safety",status:"complete",fileUrl:""}]},
+    {sec:"表格範本 Forms & Templates",items:[{code:"NMDC-FM-001",name:"BSA 行為安全觀察表",status:"complete",fileUrl:""},{code:"NMDC-FM-002",name:"TPC 缺失改善單",status:"complete",fileUrl:""},{code:"NMDC-FM-003",name:"TBM-KY 報告表",status:"complete",fileUrl:""}]}
+  ],
   tools: [{id:"tpc-def",name:"TPC 缺失單新增",desc:"新增TPC安全缺失改善單",icon:"⚠️",color:"var(--red)",type:"builtin"},{id:"sling-calc",name:"吊掛張力計算器",desc:"Sling Tension Calculator",icon:"🔧",color:"var(--purple)",type:"builtin"},{id:"gas-url",name:"GAS URL 設定",desc:"連接 Google Apps Script",icon:"🔗",color:"var(--textSec)",type:"builtin"}],
-  customTeam: null
+  schedule: {month:"2026-04",people:[]},
 };
-
-function saveLocal(){try{localStorage.setItem('safety_es_local',JSON.stringify(localState))}catch{}}
-function loadLocal(){try{const s=localStorage.getItem('safety_es_local');if(s){const d=JSON.parse(s);Object.assign(localState,d);if(localState.customTeam)TEAM=localState.customTeam;}}catch{}}
+if(!state.schedule.people || state.schedule.people.length === 0) {
+  state.schedule.people = TEAM.map(p => ({name:p, days:Array.from({length:30},(_,i)=>{const wd=new Date(2026,3,i+1).getDay();return wd===0||wd===6?"H":"R"})}));
+}
+state.def.forEach(d => d.severity = autoSeverity(d.description, d.category));
 
 // ═══════════════════════════════════════════════════════════════
-// GOOGLE APPS SCRIPT API (Sheet 2 — read/write)
+// GOOGLE SHEET LIVE DATA ENGINE (Google Visualization API)
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzVkRYxb9NRjfRIGoLCoCeK6_71H_s62vBzpwoO3mhXJZOR0HJY4XCWdQ90b_x8FSjp/exec';
-function getGasUrl(){return localStorage.getItem('gasUrl') || GAS_URL}
-
-let gasConnected = false;
-
-async function gasRead(tab) {
-  const url = getGasUrl();
-  if (!url) return null;
-  try {
-    const resp = await fetch(url + '?action=read&tab=' + encodeURIComponent(tab));
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    return data.data || data;
-  } catch(e) {
-    console.error('GAS read error ['+tab+']:', e);
-    return null;
-  }
-}
-
-async function gasWrite(tab, payload) {
-  const url = getGasUrl();
-  if (!url) { toast('請先設定 GAS URL','error'); return false; }
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type':'text/plain'},
-      body: JSON.stringify({action:'write', tab, data: payload})
-    });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    return true;
-  } catch(e) {
-    console.error('GAS write error ['+tab+']:', e);
-    toast('寫入失敗: '+e.message,'error');
-    return false;
-  }
-}
-
-async function loadSheet2Data() {
-  const statusEl = document.getElementById('gasStatus');
-  const url = getGasUrl();
-  if (!url) {
-    statusEl.innerHTML = '<span style="color:var(--textMut)">GAS 未設定</span>';
-    gasConnected = false;
-    return;
-  }
-  statusEl.innerHTML = '<span style="color:var(--amber)"><span class="sync-spin">⟳</span> GAS連線中...</span>';
-  try {
-    const [ann, trk, docs, sched] = await Promise.all([
-      gasRead('announcements'),
-      gasRead('tracking'),
-      gasRead('documents'),
-      gasRead('schedule')
-    ]);
-    if (ann) cloudData.announcements = ann;
-    if (trk) cloudData.tracking = trk;
-    if (docs) cloudData.documents = docs;
-    if (sched) cloudData.schedule = sched;
-    gasConnected = true;
-    statusEl.innerHTML = '<span style="color:var(--green)">● GAS 已連線</span>';
-  } catch(e) {
-    console.error('Sheet2 load error:', e);
-    gasConnected = false;
-    statusEl.innerHTML = '<span style="color:var(--red)">● GAS 連線失敗</span>';
-  }
-}
-
-// Fallback: read Sheet 2 via Google Visualization API (read-only)
-async function loadSheet2Fallback() {
-  const statusEl = document.getElementById('gasStatus');
-  try {
-    const [annGviz, trkGviz, docsGviz, schedGviz] = await Promise.all([
-      loadSheetJsonp('announcements', SHEET2_ID),
-      loadSheetJsonp('tracking', SHEET2_ID),
-      loadSheetJsonp('documents', SHEET2_ID),
-      loadSheetJsonp('schedule', SHEET2_ID)
-    ]);
-    if (annGviz && annGviz.table) cloudData.announcements = gvizToObjects(annGviz.table);
-    if (trkGviz && trkGviz.table) cloudData.tracking = gvizToObjects(trkGviz.table);
-    if (docsGviz && docsGviz.table) cloudData.documents = gvizToObjects(docsGviz.table);
-    if (schedGviz && schedGviz.table) cloudData.schedule = gvizToObjects(schedGviz.table);
-    if (!gasConnected) statusEl.innerHTML = '<span style="color:var(--cyan)">● Sheet2 唯讀</span>';
-  } catch(e) {
-    console.error('Sheet2 fallback error:', e);
-    if (!gasConnected) statusEl.innerHTML = '<span style="color:var(--red)">● Sheet2 載入失敗</span>';
-  }
-}
-
-// Generic GViz to object array (uses labels as keys)
-function gvizToObjects(table) {
-  // GViz may return labels or column IDs; prefer labels
-  let keys = table.cols.map(c => (c.label || '').trim());
-  // If all labels are empty, use column IDs
-  if (keys.every(k => !k)) keys = table.cols.map(c => (c.id || '').trim());
-  // If labels look like column IDs (A,B,C) and first row has text, use first row as header
-  const allColIds = keys.every(k => /^[A-Z]{1,2}$/.test(k));
-  let startRow = 0;
-  if (allColIds && table.rows.length > 0) {
-    const firstRow = table.rows[0];
-    const firstVals = firstRow.c.map(c => c && c.v != null ? String(c.v).trim() : '');
-    if (firstVals.some(v => v && !/^\d+$/.test(v))) {
-      keys = firstVals;
-      startRow = 1;
-    }
-  }
-  const result = [];
-  for (let r = startRow; r < table.rows.length; r++) {
-    const row = table.rows[r];
-    const obj = {};
-    row.c.forEach((cell, i) => {
-      if (!cell || cell.v === null || cell.v === undefined) return;
-      let val = cell.v;
-      const key = keys[i];
-      if (!key) return;
-      if (typeof val === 'string' && val.startsWith('Date(')) val = parseGvizDate(val);
-      obj[key] = val;
-    });
-    if (Object.keys(obj).length > 0) result.push(obj);
-  }
-  return result;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// GOOGLE SHEET LIVE DATA ENGINE (Sheet 1 — Google Visualization API)
-// ═══════════════════════════════════════════════════════════════
-let gsheetData = {allData:[], socRaw:[], tpcRaw:[], manpowerData:[], tbmByDate:{}, workingDaysByDate:{}, totalPeopleByDate:{}, totalHoursByDate:{}, incidentData:{}, socSubcontractors:new Set()};
+let gsheetData = {allData:[], manpowerData:[], tbmByDate:{}, workingDaysByDate:{}, totalPeopleByDate:{}, totalHoursByDate:{}, incidentData:{}, socSubcontractors:new Set()};
 let sheetLoaded = false;
 let sheetLoadError = false;
 
-// ── JSONP loader ──
+// ── JSONP loader (bypasses CORS & sandbox restrictions) ──
 let _jsonpCounter = 0;
-function loadSheetJsonp(sheetName, sheetId) {
-  const sid = sheetId || SHEET1_ID;
+function loadSheetJsonp(sheetName) {
   return new Promise((resolve, reject) => {
     const cbName = '_gviz_cb_' + (++_jsonpCounter) + '_' + Date.now();
     const timeout = setTimeout(() => {
@@ -410,52 +266,76 @@ function loadSheetJsonp(sheetName, sheetId) {
       if (script.parentNode) script.parentNode.removeChild(script);
       reject(new Error('JSONP timeout for ' + sheetName));
     }, 15000);
+
     window[cbName] = function(resp) {
       clearTimeout(timeout);
       delete window[cbName];
       if (script.parentNode) script.parentNode.removeChild(script);
       resolve(resp);
     };
-    const url = `https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
+
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
     const script = document.createElement('script');
     script.src = url;
-    script.onerror = () => { clearTimeout(timeout); delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); reject(new Error('Script load error for ' + sheetName)); };
+    script.onerror = () => {
+      clearTimeout(timeout);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      reject(new Error('Script load error for ' + sheetName));
+    };
     document.head.appendChild(script);
   });
 }
 
+// ── Parse GViz date value (handles "Date(y,m,d)" and Excel serial) ──
 function parseGvizDate(val) {
   if (val === null || val === undefined) return '';
   if (typeof val === 'string' && val.startsWith('Date(')) {
     const parts = val.replace('Date(','').replace(')','').split(',').map(Number);
-    const y = parts[0], m = parts[1]+1, d = parts[2]||1;
-    return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const d = new Date(parts[0], parts[1], parts[2]||1);
+    return d.toISOString().slice(0,10);
   }
   if (typeof val === 'number') {
-    const dt = new Date((val - 25569) * 86400000 + 43200000); // +12h to avoid timezone shift
-    return dt.getUTCFullYear()+'-'+String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+String(dt.getUTCDate()).padStart(2,'0');
+    // Excel serial date → JS date (epoch 1899-12-30)
+    const d = new Date((val - 25569) * 86400000);
+    return d.toISOString().slice(0,10);
   }
   return String(val);
 }
 
-// ── Convert SOC table ──
+// ── Convert SOC/TPC_NCR table (label-based columns) ──
 function gvizToFormRows(gvizTable) {
+  // Map label keywords → short keys
   const LABEL_MAP = {
-    'filled date':'filled_date','填寫日期':'filled_date',
-    'observation type':'observation_type','觀察種類':'observation_type',
-    'observed subcontractor':'observed_subcontractor','觀察到的承攬商':'observed_subcontractor',
-    'location':'location','地點':'location',
-    'hazard type':'hazard_type','危害種類':'hazard_type',
-    'lsr violated':'LSR_violated','保命原則':'LSR_violated',
-    'dercription':'description','description':'description','描述':'description','優點':'description',
-    'already been solved':'already_solved','已經解決':'already_solved',
-    'operation':'operation','工作內容':'operation',
+    'filled date': 'filled_date',
+    '填寫日期': 'filled_date',
+    'observation type': 'observation_type',
+    '觀察種類': 'observation_type',
+    'observed subcontractor': 'observed_subcontractor',
+    '觀察到的承攬商': 'observed_subcontractor',
+    'location': 'location',
+    '地點': 'location',
+    'hazard type': 'hazard_type',
+    '危害種類': 'hazard_type',
+    'lsr violated': 'LSR_violated',
+    '保命原則': 'LSR_violated',
+    'dercription': 'description',  // typo in actual sheet label
+    'description': 'description',
+    '描述觀察': 'description',
+    'already been solved': 'already_solved',
+    '已經解決': 'already_solved',
+    'operation': 'operation',
+    '工作內容': 'operation',
   };
+
   const colKeys = gvizTable.cols.map(c => {
     const lbl = (c.label || '').toLowerCase();
-    for (const [kw, key] of Object.entries(LABEL_MAP)) { if (lbl.includes(kw.toLowerCase())) return key; }
-    return c.id;
+    for (const [kw, key] of Object.entries(LABEL_MAP)) {
+      if (lbl.includes(kw.toLowerCase())) return key;
+    }
+    return c.id; // fallback to column ID
   });
+
   return gvizTable.rows.map(row => {
     const obj = {};
     row.c.forEach((cell, i) => {
@@ -470,20 +350,159 @@ function gvizToFormRows(gvizTable) {
   });
 }
 
-// ── Convert TPC NCR table ──
-function gvizToTpcRows(gvizTable) {
-  const TPC_LABEL_MAP = {
-    '開單日期':'issue_date','開立單位':'issuer','主辦組':'department',
-    '巡檢類型':'inspection_type','管登編號':'ncr_no','承攬商':'contractor',
-    '開立總類':'issue_category','其他':'location','地點':'location','內容':'description',
-    '缺失種類':'defect_type','罰款金額':'penalty_amount',
-    '是否結案':'is_closed','結案日期':'close_date',
+// ── Convert manpower table (no labels, row 0 = date serials, rows 1+ = companies) ──
+function gvizToManpowerData(gvizTable) {
+  const rows = gvizTable.rows;
+  if (rows.length < 2) return [];
+
+  // Row 0: column A is empty/header, columns B+ are Excel date serial numbers
+  const dateRow = rows[0];
+  const dateMap = {}; // col index → date string
+  dateRow.c.forEach((cell, i) => {
+    if (i === 0 || !cell || cell.v === null) return;
+    dateMap[i] = parseGvizDate(cell.v);
+  });
+
+  // Rows 1+: column A = company name, columns B+ = daily counts
+  const result = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const companyCell = row.c[0];
+    const company = companyCell ? String(companyCell.v || '') : '';
+    if (!company) continue;
+
+    const dailyData = {};
+    row.c.forEach((cell, i) => {
+      if (i === 0 || !dateMap[i] || !cell) return;
+      const cnt = parseFloat(cell.v) || 0;
+      dailyData[dateMap[i]] = cnt;
+    });
+
+    result.push({ company, dailyData });
+  }
+  return result;
+}
+
+function getDefectCategory(t) {
+  if (!t) return null;
+  const s = (t+'').toLowerCase();
+  if (s.includes('不安全條件') || s.includes('unsafe condition')) return 'Condition';
+  if (s.includes('不安全行為') || s.includes('unsafe action'))    return 'Action';
+  if (s.includes('優點') || s.includes('good practice'))          return 'Positive';
+  return null;
+}
+
+// ── Convert tracking table ──
+// Columns: id, item, assignees, deadline, priority, status, note
+function gvizToTrackingRows(gvizTable) {
+  const TRK_MAP = {
+    'id': 'id', 'item': 'item', 'assignees': 'assignees', 'assignee': 'assignees',
+    'deadline': 'deadline', 'priority': 'priority', 'status': 'status', 'note': 'note',
+    '事項': 'item', '負責人': 'assignees', '期限': 'deadline', '優先度': 'priority', '狀態': 'status', '備註': 'note'
   };
   const colKeys = gvizTable.cols.map(c => {
-    const lbl = (c.label || '').trim();
-    for (const [kw, key] of Object.entries(TPC_LABEL_MAP)) { if (lbl.includes(kw)) return key; }
+    const lbl = (c.label || '').toLowerCase().trim();
+    for (const [kw, key] of Object.entries(TRK_MAP)) {
+      if (lbl.includes(kw.toLowerCase())) return key;
+    }
     return c.id;
   });
+  return gvizTable.rows.map(row => {
+    const obj = {};
+    row.c.forEach((cell, i) => {
+      if (!cell || cell.v === null || cell.v === undefined) return;
+      let val = cell.v;
+      const key = colKeys[i];
+      if (key === 'deadline') val = parseGvizDate(val);
+      obj[key] = val;
+    });
+    // Normalize
+    const assigneeStr = obj.assignees || '';
+    const assignees = typeof assigneeStr === 'string' ? assigneeStr.split(/[,，、;]\s*/).filter(Boolean) : [String(assigneeStr)];
+    return {
+      id: obj.id || Date.now() + Math.random(),
+      item: obj.item || '',
+      assignees: assignees,
+      deadline: obj.deadline || '',
+      priority: obj.priority || 'medium',
+      status: obj.status || 'pending',
+      note: obj.note || ''
+    };
+  }).filter(r => r.item); // skip empty rows
+}
+
+async function loadGoogleSheetData() {
+  const statusEl = document.getElementById('sheetStatus');
+  statusEl.innerHTML = '<span style="color:var(--amber);animation:pulse 1s infinite">● 連線中...</span>';
+
+  try {
+    const [socGviz, tpcGviz, mpGviz, trkGviz] = await Promise.all([
+      loadSheetJsonp('SOC'),
+      loadSheetJsonp('TPC NCR'),
+      loadSheetJsonp('manpower'),
+      loadSheetJsonp('tracking').catch(()=>null)
+    ]);
+
+    if (socGviz.status === 'error' || tpcGviz.status === 'error' || mpGviz.status === 'error') {
+      throw new Error('GViz query error');
+    }
+
+    const socRows = gvizToFormRows(socGviz.table);
+    const tpcRows = gvizToTpcRows(tpcGviz.table);
+    const mpData  = gvizToManpowerData(mpGviz.table);
+
+    processSheetData(socRows, tpcRows, mpData);
+
+    // ── Parse tracking tab ──
+    if (trkGviz && trkGviz.table) {
+      const trkRows = gvizToTrackingRows(trkGviz.table);
+      if (trkRows.length > 0) {
+        state.trk = trkRows;
+        saveState();
+      }
+    }
+
+    sheetLoaded = true;
+    statusEl.innerHTML = `<span style="color:var(--green)">● 雲端已連線</span> <span style="font-size:10px;color:var(--textMut)">(SOC:${socRows.length} TPC:${tpcRows.length} MP:${mpData.length})</span>`;
+    toast('Google Sheet 資料載入完成 ✓');
+
+    // Re-render current page
+    renderPage(currentPage);
+  } catch(err) {
+    console.error('Sheet load error:', err);
+    sheetLoadError = true;
+    statusEl.innerHTML = '<span style="color:var(--red)">● 連線失敗</span> <span style="font-size:10px;color:var(--textMut)">(使用本地資料)</span>';
+  }
+}
+
+// ── Convert TPC NCR table (different column structure) ──
+// Columns: 開單日期, 開立單位, 主辦組, 巡檢類型, 管登編號, 承攬商, 開立總類, 其他 Other, 內容, 缺失種類, 罰款金額, 是否結案, 結案日期
+function gvizToTpcRows(gvizTable) {
+  const TPC_LABEL_MAP = {
+    '開單日期': 'issue_date',
+    '開立單位': 'issuer',
+    '主辦組': 'department',
+    '巡檢類型': 'inspection_type',
+    '管登編號': 'ncr_no',
+    '承攬商': 'contractor',
+    '開立總類': 'issue_category',
+    '其他': 'other_category',
+    '地點': 'area',
+    '內容': 'description',
+    '缺失種類': 'defect_type',
+    '罰款金額': 'penalty_amount',
+    '是否結案': 'is_closed',
+    '結案日期': 'close_date',
+  };
+
+  const colKeys = gvizTable.cols.map(c => {
+    const lbl = (c.label || '').trim();
+    for (const [kw, key] of Object.entries(TPC_LABEL_MAP)) {
+      if (lbl.includes(kw)) return key;
+    }
+    return c.id;
+  });
+
   return gvizTable.rows.map(row => {
     const obj = {};
     row.c.forEach((cell, i) => {
@@ -498,139 +517,107 @@ function gvizToTpcRows(gvizTable) {
   });
 }
 
-// ── Convert manpower table ──
-function gvizToManpowerData(gvizTable) {
-  const rows = gvizTable.rows;
-  if (rows.length < 2) return [];
-  const dateRow = rows[0];
-  const dateMap = {};
-  dateRow.c.forEach((cell, i) => {
-    if (i === 0 || !cell || cell.v === null) return;
-    dateMap[i] = parseGvizDate(cell.v);
-  });
-  const result = [];
-  for (let r = 1; r < rows.length; r++) {
-    const row = rows[r];
-    const companyCell = row.c[0];
-    const company = companyCell ? String(companyCell.v || '') : '';
-    if (!company) continue;
-    const dailyData = {};
-    row.c.forEach((cell, i) => {
-      if (i === 0 || !dateMap[i] || !cell) return;
-      const cnt = parseFloat(cell.v) || 0;
-      dailyData[dateMap[i]] = cnt;
-    });
-    result.push({ company, dailyData });
-  }
-  return result;
-}
-
-function getDefectCategory(t) {
-  if (!t) return null;
-  const s = (t+'').toLowerCase();
-  if (s.includes('不安全條件') || s.includes('unsafe condition')) return 'Condition';
-  if (s.includes('不安全行為') || s.includes('unsafe action')) return 'Action';
-  if (s.includes('優點') || s.includes('good practice')) return 'Positive';
-  return null;
-}
-
-async function loadGoogleSheetData() {
-  const statusEl = document.getElementById('sheetStatus');
-  statusEl.innerHTML = '<span style="color:var(--amber);animation:pulse 1s infinite">● 連線中...</span>';
-  try {
-    const [socGviz, tpcGviz, mpGviz] = await Promise.all([
-      loadSheetJsonp('SOC'),
-      loadSheetJsonp('TPC NCR'),
-      loadSheetJsonp('manpower')
-    ]);
-    if (socGviz.status === 'error' || tpcGviz.status === 'error' || mpGviz.status === 'error') throw new Error('GViz query error');
-
-    const socRows = gvizToFormRows(socGviz.table);
-    const tpcRows = gvizToTpcRows(tpcGviz.table);
-    const mpData  = gvizToManpowerData(mpGviz.table);
-
-    gsheetData.socRaw = socRows;
-    gsheetData.tpcRaw = tpcRows;
-    processSheetData(socRows, tpcRows, mpData);
-
-    sheetLoaded = true;
-    statusEl.innerHTML = `<span style="color:var(--green)">● 雲端已連線</span> <span style="font-size:10px;color:var(--textMut)">(SOC:${socRows.length} TPC:${tpcRows.length} MP:${mpData.length})</span>`;
-    toast('Google Sheet 資料載入完成 ✓');
-    renderPage(currentPage);
-  } catch(err) {
-    console.error('Sheet load error:', err);
-    sheetLoadError = true;
-    statusEl.innerHTML = '<span style="color:var(--red)">● 連線失敗</span> <span style="font-size:10px;color:var(--textMut)">(使用本地資料)</span>';
-  }
-}
-
 function processSheetData(socRows, tpcRows, mpData) {
   const g = gsheetData;
-  g.allData=[]; g.manpowerData=[]; g.tbmByDate={}; g.workingDaysByDate={}; g.totalPeopleByDate={}; g.totalHoursByDate={}; g.incidentData={}; g.socSubcontractors=new Set();
+  g.allData = [];
+  g.manpowerData = [];
+  g.tbmByDate = {};
+  g.workingDaysByDate = {};
+  g.totalPeopleByDate = {};
+  g.totalHoursByDate = {};
+  g.incidentData = {};
+  g.socSubcontractors = new Set();
+
   const INCIDENT_KEYS = ['Recordable incidents','LTI cases','Lost days','Near Miss','Fatalities'];
 
-  socRows.forEach((row, idx) => {
+  // ── Helper: process one form row (SOC and TPC_NCR share the same structure) ──
+  function processFormRow(row, idx, source) {
     const sub = row.observed_subcontractor || '';
     if (sub) g.socSubcontractors.add(sub);
     const obsType = row.observation_type || '';
     const dc = getDefectCategory(obsType);
+    const hazType = row.hazard_type || '';
+    const desc = row.description || '';
+    const loc = row.location || '';
+    const filledDate = row.filled_date || '';
     const solved = row.already_solved === true || String(row.already_solved).toLowerCase() === 'true';
     const lsrRaw = String(row.LSR_violated || '').toLowerCase();
     const lsrViolated = lsrRaw === 'true' || lsrRaw.includes('是') || lsrRaw.includes('yes');
-    const hazType = row.hazard_type || '';
-    const desc = row.description || '';
-    g.allData.push({
-      id:'SOC-'+idx, date:row.filled_date||'', type:dc==='Positive'?'優點':'缺點',
-      defectCategory:dc, subcontractor:sub, category:hazType, location:row.location||'',
-      description:desc, solved, lsr:lsrViolated, source:'SOC',
-      isPTWViolation: hazType.includes('工作許可') || desc.toLowerCase().includes('ptw') || desc.includes('工作許可'),
-      rawRow: row
-    });
-  });
 
+    g.allData.push({
+      id: source + '-' + idx,
+      date: filledDate,
+      type: dc === 'Positive' ? '優點' : '缺點',
+      defectCategory: dc,
+      subcontractor: sub,
+      category: hazType,
+      location: loc,
+      description: desc,
+      solved: solved,
+      lsr: lsrViolated,
+      source: source,
+      isPTWViolation: hazType.includes('工作許可') || (desc||'').toLowerCase().includes('ptw') || (desc||'').includes('工作許可')
+    });
+  }
+
+  socRows.forEach((row, idx) => processFormRow(row, idx, 'SOC'));
+
+  // ── Process TPC NCR rows (completely different structure) ──
+  // Columns: issue_date, contractor, issue_category, defect_type, penalty_amount, is_closed, description, other_category
   tpcRows.forEach((row, idx) => {
     let contractor = row.contractor || '';
+    // Try to match with SOC subcontractor names
     let matchedSub = contractor;
     g.socSubcontractors.forEach(s => {
-      if ((contractor.includes('兆濰')&&s.includes('兆濰'))||(contractor.includes('茂富')&&s.includes('茂富'))||
-          (contractor.includes('NMDC')&&s.includes('NMDC'))||(contractor.includes('安達希')&&s.includes('NMDC'))||
-          (contractor.includes('環海')&&s.includes('環海'))||(contractor.includes('EGS')&&s.includes('EGS'))||
-          (contractor.includes('海義')&&s.includes('海義'))||(contractor.includes('HiE')&&s.includes('HiE'))||
-          (contractor.includes('高虎')&&s.includes('高虎'))||(contractor.includes('GAC')&&s.includes('GAC'))||
-          (contractor.includes('美綺')&&s.includes('美綺'))||(contractor.includes('天力')&&s.includes('天力'))) matchedSub = s;
+      if ((contractor.includes('兆濰') && s.includes('兆濰')) ||
+          (contractor.includes('茂富') && s.includes('茂富')) ||
+          (contractor.includes('NMDC') && s.includes('NMDC')) ||
+          (contractor.includes('安達希') && s.includes('NMDC')) ||
+          (contractor.includes('環海') && s.includes('環海')) ||
+          (contractor.includes('EGS') && s.includes('EGS')) ||
+          (contractor.includes('海義') && s.includes('海義')) ||
+          (contractor.includes('HiE') && s.includes('HiE')) ||
+          (contractor.includes('高虎') && s.includes('高虎')) ||
+          (contractor.includes('GAC') && s.includes('GAC')) ||
+          (contractor.includes('美綺') && s.includes('美綺')) ||
+          (contractor.includes('天力') && s.includes('天力'))) matchedSub = s;
     });
 
     let penaltyAmount = 0;
     if (row.penalty_amount) penaltyAmount = parseFloat(String(row.penalty_amount).replace(/[^\d.]/g,'')) || 0;
 
+    // issue_category: 不安全條件, 不安全行為, 優點, 罰單
     const issueCat = row.issue_category || '';
     let type = '缺點', dc = 'Condition';
-    // 優點判定
-    if (issueCat.includes('優點') || issueCat.includes('Good practice')) { type = '優點'; dc = 'Positive'; }
-    // 其餘全部歸為缺點（TPC、POE、罰單、不安全行為、不安全條件等）
-    // defectCategory 細分
+    if (issueCat.includes('罰單')) type = '罰單';
+    else if (issueCat.includes('優點') || issueCat.includes('Good practice')) { type = '優點'; dc = 'Positive'; }
     if (issueCat.includes('不安全行為') || issueCat.includes('Unsafe action')) dc = 'Action';
-    else if (issueCat.includes('不安全條件') || issueCat.includes('Unsafe condition')) dc = 'Condition';
-    // 罰單標記（仍算缺失，另外記錄罰款金額）
-    const isPenalty = issueCat.includes('罰單');
+    if (issueCat.includes('不安全條件') || issueCat.includes('Unsafe condition')) dc = 'Condition';
 
-    const defectType = row.defect_type || '';
-    const tpcLocation = row.location || '';
+    const defectType = row.defect_type || row.other_category || '';
     const desc = row.description || '';
     const dtStr = defectType.toLowerCase();
     const isClosed = row.is_closed === '是' || row.is_closed === true || String(row.is_closed).includes('是');
 
     g.allData.push({
-      id:'TPC-'+idx, date:row.issue_date||'', type, defectCategory:dc,
-      subcontractor:matchedSub||contractor, category:defectType, location:tpcLocation,
-      description:desc, solved:isClosed, lsr:false,
-      penaltyAmount, isPenalty, ncrNo:row.ncr_no||'', source:'TPC NCR',
-      issueCat,
-      isPTWViolation: dtStr.includes('工作許可') || dtStr.includes('ptw') || dtStr.includes('permit'),
-      rawRow: row
+      id: 'TPC-'+idx,
+      date: row.issue_date || '',
+      type: type,
+      defectCategory: dc,
+      subcontractor: matchedSub || contractor,
+      category: defectType,
+      location: row.area || '',
+      description: desc,
+      solved: isClosed,
+      lsr: false,
+      penaltyAmount: penaltyAmount,
+      ncrNo: row.ncr_no || '',
+      source: 'TPC NCR',
+      isPTWViolation: dtStr.includes('工作許可') || dtStr.includes('ptw') || dtStr.includes('permit')
     });
   });
 
+  // ── Process Manpower (pre-parsed array of {company, dailyData}) ──
   mpData.forEach(item => {
     const cname = item.company;
     if (!cname) return;
@@ -638,12 +625,18 @@ function processSheetData(socRows, tpcRows, mpData) {
     const isTotal = cname === 'TOTAL';
     const isTotalHours = cname === 'TOTAL HOURS';
     const isIncident = INCIDENT_KEYS.includes(cname);
+
     Object.entries(item.dailyData).forEach(([dateStr, cnt]) => {
-      if (isTBM) { g.tbmByDate[dateStr] = (g.tbmByDate[dateStr]||0) + cnt; }
-      else if (isTotalHours) { g.totalHoursByDate[dateStr] = cnt; }
-      else if (isIncident) { if (!g.incidentData[cname]) g.incidentData[cname] = {}; g.incidentData[cname][dateStr] = cnt; }
-      else if (isTotal) { g.totalPeopleByDate[dateStr] = cnt; }
-      else {
+      if (isTBM) {
+        g.tbmByDate[dateStr] = (g.tbmByDate[dateStr]||0) + cnt;
+      } else if (isTotalHours) {
+        g.totalHoursByDate[dateStr] = cnt;
+      } else if (isIncident) {
+        if (!g.incidentData[cname]) g.incidentData[cname] = {};
+        g.incidentData[cname][dateStr] = cnt;
+      } else if (isTotal) {
+        g.totalPeopleByDate[dateStr] = cnt;
+      } else {
         if (cnt > 0) {
           g.manpowerData.push({ company: cname, date: dateStr, count: cnt });
           if (!g.workingDaysByDate[dateStr]) g.workingDaysByDate[dateStr] = 0;
@@ -660,110 +653,195 @@ function processSheetData(socRows, tpcRows, mpData) {
 function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   if (!sheetLoaded) return getFallbackKPI();
   const g = gsheetData;
+
+  // Base filter
   let base = g.allData.filter(item =>
     item.date >= startDate && item.date <= endDate &&
     (source === 'All' || item.source === source) &&
     (subFilter === 'All' || item.subcontractor === subFilter) &&
     (locFilter === 'All' || item.location === locFilter)
   );
-  const allDefects = base.filter(d => d.type === '缺點');
+
+  const allDefects = base.filter(d => d.type === '缺點' || d.type === '罰單');
   const condDef = allDefects.filter(d => d.defectCategory === 'Condition');
   const actDef  = allDefects.filter(d => d.defectCategory === 'Action');
-  let filtered = dcFilter && dcFilter !== 'All' ? base.filter(i => i.type === '優點' || i.defectCategory === dcFilter) : base;
-  const defects   = filtered.filter(d => d.type === '缺點');
+
+  let filtered = dcFilter && dcFilter !== 'All'
+    ? base.filter(i => i.type === '優點' || i.defectCategory === dcFilter)
+    : base;
+
+  const defects   = filtered.filter(d => d.type === '缺點' || d.type === '罰單');
   const positives = filtered.filter(d => d.type === '優點');
   const closed    = defects.filter(d => d.solved);
-  const socDef    = filtered.filter(d => d.source === 'SOC' && d.type === '缺點');
-  const tpcDef    = filtered.filter(d => d.source === 'TPC NCR' && d.type === '缺點');
-  const tpcPen    = filtered.filter(d => d.source === 'TPC NCR' && d.isPenalty);
+  const socDef    = filtered.filter(d => d.source === 'SOC' && (d.type === '缺點' || d.type === '罰單'));
+  const tpcDef    = filtered.filter(d => d.source === 'TPC NCR' && (d.type === '缺點' || d.type === '罰單'));
+  const tpcPen    = filtered.filter(d => d.source === 'TPC NCR' && d.type === '罰單');
   const lsrViol   = defects.filter(d => d.lsr);
 
   let totalPenalty = 0;
   tpcPen.forEach(i => totalPenalty += parseFloat(i.penaltyAmount) || 0);
+
   const closureRate = defects.length > 0 ? (closed.length / defects.length) * 100 : 0;
 
+  // PTW compliance
   const ptwViolations = allDefects.filter(d => d.isPTWViolation).length;
   const ptwRate = allDefects.length > 0 ? Math.max(0, (1 - ptwViolations / allDefects.length) * 100) : 100;
 
+  // TBM rate
   const workDays = Object.keys(g.workingDaysByDate).filter(d => d >= startDate && d <= endDate);
   const tbmDays = workDays.filter(d => (g.tbmByDate[d] || 0) >= 1);
   const tbmRate = workDays.length > 0 ? (tbmDays.length / workDays.length) * 100 : 0;
 
+  // Lagging indicators
   let totalPeople = 0;
-  Object.entries(g.totalPeopleByDate).forEach(([date, val]) => { if (date >= startDate && date <= endDate) totalPeople += val; });
+  Object.entries(g.totalPeopleByDate).forEach(([date, val]) => {
+    if (date >= startDate && date <= endDate) totalPeople += val;
+  });
   const totalHours = totalPeople * 8;
   function sumIncident(key) {
     if (!g.incidentData[key]) return 0;
-    return Object.entries(g.incidentData[key]).filter(([d]) => d >= startDate && d <= endDate).reduce((s, [, v]) => s + v, 0);
+    return Object.entries(g.incidentData[key])
+      .filter(([d]) => d >= startDate && d <= endDate)
+      .reduce((s, [, v]) => s + v, 0);
   }
-  const rec=sumIncident('Recordable incidents'),lti=sumIncident('LTI cases'),lost=sumIncident('Lost days'),nm=sumIncident('Near Miss'),fat=sumIncident('Fatalities');
+  const rec  = sumIncident('Recordable incidents');
+  const lti  = sumIncident('LTI cases');
+  const lost = sumIncident('Lost days');
+  const nm   = sumIncident('Near Miss');
+  const fat  = sumIncident('Fatalities');
   const calcRate = (n, mul) => totalHours > 0 ? (n * mul / totalHours) : 0;
-  const trir=calcRate(rec,200000),ltir=calcRate(lti,200000),severity=calcRate(lost,200000),nmRate=calcRate(nm,200000),far=calcRate(fat,100000000);
+  const trir     = calcRate(rec, 200000);
+  const ltir     = calcRate(lti, 200000);
+  const severity = calcRate(lost, 200000);
+  const nmRate   = calcRate(nm, 200000);
+  const far      = calcRate(fat, 100000000);
 
+  // Category stats
   const catStats = {};
-  defects.forEach(item => { if (!item.category) return; if (!catStats[item.category]) catStats[item.category]={total:0,condition:0,action:0}; catStats[item.category].total++; if(item.defectCategory==='Condition')catStats[item.category].condition++; else if(item.defectCategory==='Action')catStats[item.category].action++; });
-  const socByCategory = Object.entries(catStats).map(([name, v]) => ({name, value:v.total, condition:v.condition, action:v.action})).sort((a,b) => b.value - a.value);
+  defects.forEach(item => {
+    if (!item.category) return;
+    if (!catStats[item.category]) catStats[item.category] = { total:0, condition:0, action:0 };
+    catStats[item.category].total++;
+    if (item.defectCategory === 'Condition') catStats[item.category].condition++;
+    else if (item.defectCategory === 'Action') catStats[item.category].action++;
+  });
+  const socByCategory = Object.entries(catStats)
+    .map(([name, v]) => ({name, value: v.total, condition: v.condition, action: v.action}))
+    .sort((a,b) => b.value - a.value);
 
+  // Monthly stats
   const monthlyStats = {};
-  base.forEach(item => { if (item.date && item.type === '缺點') { const m = item.date.substring(0,7); if (!monthlyStats[m]) monthlyStats[m] = {soc:0,ncr:0}; if(item.source==='SOC')monthlyStats[m].soc++; else monthlyStats[m].ncr++; }});
-  const monthly = Object.entries(monthlyStats).sort((a,b)=>a[0].localeCompare(b[0])).map(([m, v]) => ({m, soc:v.soc, ncr:v.ncr}));
-
-  const subStats = {};
-  filtered.forEach(item => {
-    if (item.subcontractor && item.type === '缺點') {
-      if (!subStats[item.subcontractor]) subStats[item.subcontractor] = {name:item.subcontractor,soc:0,ncr:0,cond:0,act:0,closed:0,total:0};
-      subStats[item.subcontractor].total++;
-      if(item.defectCategory==='Condition')subStats[item.subcontractor].cond++; else if(item.defectCategory==='Action')subStats[item.subcontractor].act++;
-      if(item.solved)subStats[item.subcontractor].closed++;
-      if(item.source==='SOC')subStats[item.subcontractor].soc++; else subStats[item.subcontractor].ncr++;
+  base.forEach(item => {
+    if (item.date && (item.type === '缺點' || item.type === '罰單')) {
+      const m = item.date.substring(0,7);
+      if (!monthlyStats[m]) monthlyStats[m] = { soc:0, ncr:0 };
+      if (item.source === 'SOC') monthlyStats[m].soc++;
+      else monthlyStats[m].ncr++;
     }
   });
-  const contractorRank = Object.values(subStats).filter(i=>i.total>0).map(c=>({...c,score:c.total>0?Math.round((c.closed/c.total)*100):0})).sort((a,b)=>b.score-a.score);
+  const monthly = Object.entries(monthlyStats).sort((a,b)=>a[0].localeCompare(b[0]))
+    .map(([m, v]) => ({m, soc: v.soc, ncr: v.ncr}));
 
+  // Contractor ranking
+  const subStats = {};
+  filtered.forEach(item => {
+    if (item.subcontractor && (item.type === '缺點' || item.type === '罰單')) {
+      if (!subStats[item.subcontractor]) subStats[item.subcontractor] = { name:item.subcontractor, soc:0, ncr:0, cond:0, act:0, closed:0, total:0 };
+      subStats[item.subcontractor].total++;
+      if (item.defectCategory === 'Condition') subStats[item.subcontractor].cond++;
+      else if (item.defectCategory === 'Action') subStats[item.subcontractor].act++;
+      if (item.solved) subStats[item.subcontractor].closed++;
+      if (item.source === 'SOC') subStats[item.subcontractor].soc++;
+      else subStats[item.subcontractor].ncr++;
+    }
+  });
+  const contractorRank = Object.values(subStats)
+    .filter(i=>i.total>0)
+    .map(c => ({...c, score: c.total > 0 ? Math.round((c.closed/c.total)*100) : 0}))
+    .sort((a,b) => b.score - a.score);
+
+  // Manpower stats
   const mpFiltered = g.manpowerData.filter(i => i.date >= startDate && i.date <= endDate);
   const mpByCompany = {};
-  mpFiltered.forEach(item => { if(!mpByCompany[item.company])mpByCompany[item.company]={name:item.company,total:0,max:0,days:new Set()}; mpByCompany[item.company].total+=item.count; mpByCompany[item.company].max=Math.max(mpByCompany[item.company].max,item.count); mpByCompany[item.company].days.add(item.date); });
-  const manpower = Object.values(mpByCompany).map(c=>({name:c.name,avg:c.days.size>0?Math.round(c.total/c.days.size):0,max:c.max,hours:c.total*8})).sort((a,b)=>b.hours-a.hours);
+  mpFiltered.forEach(item => {
+    if (!mpByCompany[item.company]) mpByCompany[item.company] = {name:item.company, total:0, max:0, days:new Set()};
+    mpByCompany[item.company].total += item.count;
+    mpByCompany[item.company].max = Math.max(mpByCompany[item.company].max, item.count);
+    mpByCompany[item.company].days.add(item.date);
+  });
+  const manpower = Object.values(mpByCompany).map(c => ({
+    name: c.name,
+    avg: c.days.size > 0 ? Math.round(c.total / c.days.size) : 0,
+    max: c.max,
+    hours: c.total * 8
+  })).sort((a,b) => b.hours - a.hours);
 
-  const openCond=condDef.filter(d=>!d.solved).length,openAct=actDef.filter(d=>!d.solved).length;
-  const closedCond=condDef.filter(d=>d.solved).length,closedAct=actDef.filter(d=>d.solved).length;
+  const openCond   = condDef.filter(d => !d.solved).length;
+  const openAct    = actDef.filter(d  => !d.solved).length;
+  const closedCond = condDef.filter(d => d.solved).length;
+  const closedAct  = actDef.filter(d  => d.solved).length;
 
   return {
-    summary:{totalSOC:socDef.length,totalNCR:tpcDef.length,totalDefects:defects.length,positives:positives.length,closureRate,manpower:totalPeople,safeHours:totalHours,trir,ltir,far,nearMissRate:nmRate,severityRate:severity,penaltyAmount:totalPenalty,conditionOpen:openCond,conditionClosed:closedCond,actionOpen:openAct,actionClosed:closedAct,lsrViolations:lsrViol.length,rec,lti,lost,nm,fat,totalPeople,totalHours},
-    ncrClosure:closureRate, ptwCompliance:ptwRate, tbmRate,
+    summary: {
+      totalSOC: socDef.length, totalNCR: tpcDef.length,
+      totalDefects: defects.length, positives: positives.length,
+      closureRate: closureRate, manpower: totalPeople,
+      safeHours: totalHours,
+      trir, ltir, far, nearMissRate: nmRate, severityRate: severity,
+      penaltyAmount: totalPenalty,
+      conditionOpen: openCond, conditionClosed: closedCond,
+      actionOpen: openAct, actionClosed: closedAct,
+      lsrViolations: lsrViol.length,
+      rec, lti, lost, nm, fat, totalPeople, totalHours
+    },
+    ncrClosure: closureRate, ptwCompliance: ptwRate, tbmRate: tbmRate,
     socByCategory, monthly, contractorRank, manpower,
+    // Monthly manpower by location (台中/通霄)
     monthlyManpower: calcMonthlyManpowerByLocation(startDate, endDate)
   };
 }
 
 function calcMonthlyManpowerByLocation(startDate, endDate) {
   const g = gsheetData;
-  const monthData = {};
+  const monthData = {}; // month → {taichung, tongxiao}
   g.manpowerData.forEach(item => {
     if (item.date < startDate || item.date > endDate) return;
     const m = item.date.substring(0, 7);
-    if (!monthData[m]) monthData[m] = {taichung:0,tongxiao:0,unassigned:0};
-    const cn = (item.company||'').toLowerCase();
-    if (cn.includes('台中')||cn.includes('taichung')) monthData[m].taichung += item.count;
-    else if (cn.includes('通霄')||cn.includes('tongxiao')||cn.includes('tunghsiao')) monthData[m].tongxiao += item.count;
-    else monthData[m].unassigned += item.count;
+    if (!monthData[m]) monthData[m] = { taichung: 0, tongxiao: 0, unassigned: 0 };
+    const cn = (item.company || '').toLowerCase();
+    if (cn.includes('台中') || cn.includes('taichung')) {
+      monthData[m].taichung += item.count;
+    } else if (cn.includes('通霄') || cn.includes('tongxiao') || cn.includes('tunghsiao')) {
+      monthData[m].tongxiao += item.count;
+    } else {
+      monthData[m].unassigned += item.count;
+    }
   });
+  // Split unassigned 50/50 rounded
   return Object.entries(monthData).sort((a,b)=>a[0].localeCompare(b[0])).map(([m, v]) => {
-    const halfUp = Math.ceil(v.unassigned / 2), halfDown = Math.floor(v.unassigned / 2);
-    return {month:m, taichung:v.taichung+halfUp, tongxiao:v.tongxiao+halfDown};
+    const halfUp = Math.ceil(v.unassigned / 2);
+    const halfDown = Math.floor(v.unassigned / 2);
+    return { month: m, taichung: v.taichung + halfUp, tongxiao: v.tongxiao + halfDown };
   });
 }
 
 function getFallbackKPI() {
-  return {summary:{totalSOC:0,totalNCR:0,totalDefects:0,positives:0,closureRate:0,manpower:0,safeHours:0,trir:0,ltir:0,far:0,nearMissRate:0,severityRate:0,penaltyAmount:0,conditionOpen:0,conditionClosed:0,actionOpen:0,actionClosed:0,lsrViolations:0,rec:0,lti:0,lost:0,nm:0,fat:0,totalPeople:0,totalHours:0},ncrClosure:0,ptwCompliance:0,tbmRate:0,socByCategory:[],monthly:[],contractorRank:[],manpower:[],monthlyManpower:[]};
+  return {
+    summary:{totalSOC:0,totalNCR:0,totalDefects:0,positives:0,closureRate:0,manpower:0,safeHours:0,trir:0,ltir:0,far:0,nearMissRate:0,severityRate:0,penaltyAmount:0,conditionOpen:0,conditionClosed:0,actionOpen:0,actionClosed:0,lsrViolations:0,rec:0,lti:0,lost:0,nm:0,fat:0,totalPeople:0,totalHours:0},
+    ncrClosure:0,ptwCompliance:0,tbmRate:0,
+    socByCategory:[],monthly:[],contractorRank:[],manpower:[],monthlyManpower:[]
+  };
 }
 
 function getDateRange() {
   if (sheetLoaded) {
-    const allDates = [...gsheetData.allData.map(d=>d.date),...Object.keys(gsheetData.totalPeopleByDate)].filter(d => d && d.length >= 10).sort();
-    if (allDates.length > 0) return {start:allDates[0], end:allDates[allDates.length-1]};
+    const allDates = [
+      ...gsheetData.allData.map(d=>d.date),
+      ...Object.keys(gsheetData.totalPeopleByDate)
+    ].filter(d => d && d.length >= 10).sort();
+    if (allDates.length > 0) return { start: allDates[0], end: allDates[allDates.length-1] };
   }
-  return {start:'2025-04-01', end:new Date().toISOString().slice(0,10)};
+  return { start: '2025-04-01', end: new Date().toISOString().slice(0,10) };
 }
 
 const NAV = [
@@ -776,22 +854,29 @@ const NAV = [
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════
-function autoSeverity(desc,cat){ const s=(desc+" "+cat).toLowerCase(); if(SEV_KW.critical.some(k=>s.includes(k)))return"critical"; if(SEV_KW.major.some(k=>s.includes(k)))return"major"; if(SEV_KW.minor.some(k=>s.includes(k)))return"minor"; return"major"; }
+function autoSeverity(desc,cat){
+  const s=(desc+" "+cat).toLowerCase();
+  if(SEV_KW.critical.some(k=>s.includes(k)))return"critical";
+  if(SEV_KW.major.some(k=>s.includes(k)))return"major";
+  if(SEV_KW.minor.some(k=>s.includes(k)))return"minor";
+  return"major";
+}
 function badge(text,color){return `<span class="badge" style="color:${color};background:${color}20">${text}</span>`}
-function getTeam(){return localState.customTeam||TEAM}
-function addTeamMember(){const n=prompt('輸入新人員姓名');if(!n)return;if(!localState.customTeam)localState.customTeam=[...TEAM];localState.customTeam.push(n);TEAM=localState.customTeam;saveLocal();toast('已新增 '+n);renderPage(currentPage)}
-function refreshAll(){
+function saveState(){try{localStorage.setItem('safety_es',JSON.stringify(state))}catch{}}
+function loadState(){try{const s=localStorage.getItem('safety_es');if(s){const d=JSON.parse(s);Object.assign(state,d);state.def.forEach(x=>{if(!x.severity)x.severity=autoSeverity(x.description,x.category)});if(state.customTeam)TEAM=state.customTeam;}}catch{}}
+function getTeam(){return state.customTeam||TEAM}
+function addTeamMember(){const n=prompt('輸入新人員姓名');if(!n)return;if(!state.customTeam)state.customTeam=[...TEAM];state.customTeam.push(n);TEAM=state.customTeam;saveState();toast('已新增 '+n);renderPage(currentPage)}
+function refreshData(){
   sheetLoaded=false;sheetLoadError=false;
   document.getElementById('sheetStatus').innerHTML='<span style="color:var(--amber);animation:pulse 1s infinite">● 重新載入中...</span>';
   loadGoogleSheetData();
-  loadSheet2Data().then(()=>{if(!gasConnected)loadSheet2Fallback()}).then(()=>renderPage(currentPage));
 }
 function toast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.classList.remove('show'),2800)}
 function openModal(id){document.getElementById(id).classList.add('show')}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
 function showGenModal(title,html,w){const m=document.getElementById('genModalBox');m.style.maxWidth=(w||540)+'px';document.getElementById('genModalTitle').textContent=title;document.getElementById('genModalBody').innerHTML=html;openModal('genModal')}
 function today(){return new Date().toISOString().slice(0,10)}
-function isOverdue(d){return d.status!=='closed'&&d.status!=='done'&&new Date(d.deadline)<new Date()}
+function isOverdue(d){return d.status!=='closed'&&new Date(d.dueDate)<new Date()}
 function optionsHtml(arr,blank){return (blank?'<option value="">--選擇--</option>':'')+arr.map(a=>`<option value="${a}">${a}</option>`).join('')}
 
 // ═══════════════════════════════════════════════════════════════
@@ -803,20 +888,28 @@ function buildNav(){
   ).join('');
 }
 function goPage(id){
-  if(window.innerWidth<=768) closeMobile();
   currentPage=id;
   NAV.forEach(n=>{const el=document.getElementById('page-'+n.id);if(el)el.hidden=n.id!==id});
   document.getElementById('pageTitle').textContent=NAV.find(n=>n.id===id)?.label||'';
-  buildNav(); renderPage(id);
+  buildNav();
+  renderPage(id);
 }
-function toggleSidebar(){if(window.innerWidth<=768){closeMobile();return;}document.getElementById('sidebar').classList.toggle('collapsed')}
-function openMobile(){var sb=document.getElementById('sidebar');sb.classList.remove('collapsed');sb.classList.add('mobile-open');document.getElementById('mobileOverlay').classList.add('show')}
-function closeMobile(){document.getElementById('sidebar').classList.remove('mobile-open');document.getElementById('mobileOverlay').classList.remove('show')}
-function checkMobile(){var btn=document.getElementById('hamBtn');if(btn)btn.style.display=window.innerWidth<=768?'flex':'none';if(window.innerWidth>768){document.getElementById('sidebar').classList.remove('mobile-open');document.getElementById('mobileOverlay').classList.remove('show')}}
-window.addEventListener('resize',checkMobile);
-function toggleAdmin(){if(isAdmin){isAdmin=false;updateAdminUI();toast('已登出');renderPage(currentPage);return}openModal('loginModal')}
-function doLogin(){const u=document.getElementById('loginUser').value,p=document.getElementById('loginPass').value;if(u==='123'&&p==='123'){isAdmin=true;closeModal('loginModal');updateAdminUI();toast('管理員模式已啟用 ✓');renderPage(currentPage)}else{const e=document.getElementById('loginErr');e.textContent='帳號或密碼錯誤';e.style.display='block'}}
-function updateAdminUI(){const btn=document.getElementById('adminBtn');btn.className='admin-btn '+(isAdmin?'on':'off');btn.innerHTML=isAdmin?'🔓 <span class="admin-label">管理員 ON</span>':'🔒 <span class="admin-label">管理員登入</span>';document.getElementById('adminBadge').style.display=isAdmin?'block':'none'}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('collapsed')}
+function toggleAdmin(){
+  if(isAdmin){isAdmin=false;updateAdminUI();toast('已登出');renderPage(currentPage);return}
+  openModal('loginModal');
+}
+function doLogin(){
+  const u=document.getElementById('loginUser').value,p=document.getElementById('loginPass').value;
+  if(u==='123'&&p==='123'){isAdmin=true;closeModal('loginModal');updateAdminUI();toast('管理員模式已啟用 ✓');renderPage(currentPage)}
+  else{const e=document.getElementById('loginErr');e.textContent='帳號或密碼錯誤';e.style.display='block'}
+}
+function updateAdminUI(){
+  const btn=document.getElementById('adminBtn');
+  btn.className='admin-btn '+(isAdmin?'on':'off');
+  btn.innerHTML=isAdmin?'🔓 <span class="admin-label">管理員 ON</span>':'🔒 <span class="admin-label">管理員登入</span>';
+  document.getElementById('adminBadge').style.display=isAdmin?'block':'none';
+}
 
 // ═══════════════════════════════════════════════════════════════
 // RENDER PAGES
@@ -830,26 +923,16 @@ function renderPage(id){
   }
 }
 
-// ── Accessors for cloud data (with fallback defaults) ──
-function getAnnouncements(){return cloudData.announcements.length>0?cloudData.announcements:[{id:1,date:"2026-04-12",content:"本週五進行全線安全巡檢，請各承包商配合準備。",priority:"high"},{id:2,date:"2026-04-10",content:"新版PTW申請流程已更新，請至文件區下載。",priority:"medium"}]}
-function getTracking(){return cloudData.tracking.length>0?cloudData.tracking:[{id:1,item:"高虎 吊掛作業SOP更新",assignees:"陳工程師,李主管",deadline:"2026-04-15",priority:"high",status:"pending",note:""},{id:2,item:"海義 施工架自主檢查紀錄補齊",assignees:"王工程師",deadline:"2026-04-20",priority:"medium",status:"in-progress",note:""},{id:3,item:"茂富 LOTO教育訓練執行",assignees:"張專員",deadline:"2026-04-18",priority:"low",status:"done",note:"已於4/5完成"}]}
-function getDocuments(){return cloudData.documents.length>0?cloudData.documents:[]}
-function getScheduleData(){return cloudData.schedule.length>0?cloudData.schedule:[]}
-
-// Normalize tracking assignees (GAS might return string instead of array)
-function trkAssignees(t){const a=t.assignees;if(!a)return[];if(Array.isArray(a))return a;return String(a).split(',').map(s=>s.trim()).filter(Boolean)}
-
 // ─── HOME ────────────────────────────────────────────────────
 function renderHome(){
   const range = getDateRange();
   const kpi = calcKPI(range.start, range.end, 'All', 'All', 'All', 'All');
   const s = kpi.summary;
+  // Open defects from live Sheet data
   const liveOpenSOC = sheetLoaded ? gsheetData.allData.filter(d => d.source === 'SOC' && d.type !== '優點' && !d.solved).length : 0;
   const liveOpenTPC = sheetLoaded ? gsheetData.allData.filter(d => d.source === 'TPC NCR' && d.type !== '優點' && !d.solved).length : 0;
   const openDefs = liveOpenSOC + liveOpenTPC;
-  const trk = getTracking();
-  const pendingTrk = trk.filter(t=>t.status!=='done').length;
-  const ann = getAnnouncements();
+  const pendingTrk=state.trk.filter(t=>t.status!=='done').length;
   const el=document.getElementById('page-home');
   el.innerHTML=`
     ${!sheetLoaded && !sheetLoadError ? '<div class="loading-bar"><div class="fill"></div></div><p style="font-size:11px;color:var(--textMut);margin-bottom:14px;text-align:center">正在從 Google Sheet 載入資料...</p>' : ''}
@@ -868,20 +951,20 @@ function renderHome(){
     <div class="grid grid-2">
       <div class="card">
         <div class="card-head"><h3>🔔 公告欄 Announcements</h3>${isAdmin?'<button class="btn btn-pri btn-sm" onclick="addAnnouncement()">+ 新增</button>':''}</div>
-        <div class="card-body" style="max-height:240px;overflow-y:auto">${ann.map(a=>`
+        <div class="card-body" style="max-height:240px;overflow-y:auto">${state.ann.map(a=>`
           <div style="padding:10px 0;border-bottom:1px solid var(--border)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
               ${badge(a.priority==='high'?'🔴 重要':'🟡 一般',a.priority==='high'?'var(--red)':'var(--amber)')}
-              <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--textMut)">${a.date||''}</span>${isAdmin?`<button class="btn-ghost btn-sm" onclick="delAnn('${a.id}')">🗑</button>`:''}</div>
+              <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--textMut)">${a.date}</span>${isAdmin?`<button class="btn-ghost btn-sm" onclick="delAnn(${a.id})">🗑</button>`:''}</div>
             </div>
-            <div style="font-size:12px;line-height:1.6;color:var(--textSec)">${a.content||''}</div>
+            <div style="font-size:12px;line-height:1.6;color:var(--textSec)">${a.content}</div>
           </div>`).join('')}</div>
       </div>
       <div class="card">
         <div class="card-head"><h3>📋 追蹤事項 Tracking</h3><div style="display:flex;gap:6px">${isAdmin?'<button class="btn btn-pri btn-sm" onclick="addTracking()">+ 新增</button>':''}<button class="btn btn-ghost btn-sm" onclick="goPage('tracking')">全部→</button></div></div>
-        <div class="card-body" style="max-height:240px;overflow-y:auto">${trk.map(t=>`
+        <div class="card-body" style="max-height:240px;overflow-y:auto">${state.trk.map(t=>`
           <div style="padding:8px 0;border-bottom:1px solid rgba(30,39,56,.1);display:flex;justify-content:space-between;align-items:center">
-            <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.item||''}</div><div style="font-size:10px;color:var(--textMut)">${t.deadline||''}</div></div>
+            <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.item}</div><div style="font-size:10px;color:var(--textMut)">${t.deadline||''}</div></div>
             ${badge(t.status==='done'?'✅':t.status==='in-progress'?'🔄':'⏳',t.status==='done'?'var(--green)':t.status==='in-progress'?'var(--blue)':'var(--amber)')}
           </div>`).join('')}</div>
       </div>
@@ -898,6 +981,7 @@ function renderHome(){
       </table></div>
       <div style="padding:0 16px 16px;height:200px"><canvas id="locMpChart"></canvas></div>
     </div>` : ''}`;
+  // Location manpower chart
   if(sheetLoaded && kpi.monthlyManpower.length > 0) {
     setTimeout(()=>{
       const lmc=document.getElementById('locMpChart');
@@ -936,6 +1020,7 @@ function renderDashboard(){
   const s = kpi.summary;
   const el=document.getElementById('page-dashboard');
 
+  // Build subcontractor & location options from live data
   let subOptions = '<option value="All">全部</option>';
   let locOptions = '<option value="All">全部</option>';
   if (sheetLoaded) {
@@ -964,7 +1049,13 @@ function renderDashboard(){
     <div class="card" style="margin-bottom:22px;overflow:hidden">
       <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--textSec)">📉 落後指標 Lagging Indicators (OSHA)</div>
       <div class="grid grid-5" style="gap:0">
-        ${[{l:"TRIR",v:s.trir.toFixed(2),c:'var(--blue)',sub:`Recordable: ${s.rec}`},{l:"LTIR",v:s.ltir.toFixed(2),c:'var(--red)',sub:`LTI: ${s.lti}`},{l:"嚴重率 Severity",v:s.severityRate.toFixed(2),c:'var(--amber)',sub:`Lost days: ${s.lost}`},{l:"虛驚事故率 Near Miss",v:s.nearMissRate.toFixed(2),c:'var(--purple)',sub:`Near Miss: ${s.nm}`},{l:"FAR",v:s.far.toFixed(2),c:'var(--cyan)',sub:`Fatalities: ${s.fat}`}].map((x,i)=>`
+        ${[
+          {l:"TRIR",v:s.trir.toFixed(2),c:'var(--blue)',sub:`Recordable: ${s.rec}`},
+          {l:"LTIR",v:s.ltir.toFixed(2),c:'var(--red)',sub:`LTI: ${s.lti}`},
+          {l:"嚴重率 Severity",v:s.severityRate.toFixed(2),c:'var(--amber)',sub:`Lost days: ${s.lost}`},
+          {l:"近失率 Near Miss",v:s.nearMissRate.toFixed(2),c:'var(--purple)',sub:`Near Miss: ${s.nm}`},
+          {l:"FAR",v:s.far.toFixed(2),c:'var(--cyan)',sub:`Fatalities: ${s.fat}`}
+        ].map((x,i)=>`
           <div style="padding:20px 12px;text-align:center;border-right:${i<4?'1px solid var(--border)':'none'};border-top:3px solid ${x.c}">
             <div style="font-size:12px;font-weight:700;margin-bottom:2px">${x.l}</div>
             <div style="font-size:28px;font-weight:900;color:${x.c};font-family:var(--mono)">${x.v}</div>
@@ -1014,19 +1105,21 @@ function renderDashboard(){
       </div>
     </div>`;
 
+  // Charts
   setTimeout(()=>{
     if(trendChart)trendChart.destroy();if(catChart)catChart.destroy();
     const tc=document.getElementById('trendCanvas');const cc=document.getElementById('catCanvas');
     if(tc && kpi.monthly.length > 0) trendChart=new Chart(tc,{type:'line',data:{labels:kpi.monthly.map(m=>m.m),datasets:[{label:'SOC',data:kpi.monthly.map(m=>m.soc),borderColor:'#f59e0b',borderWidth:2,tension:.4,pointRadius:3,fill:false},{label:'NCR',data:kpi.monthly.map(m=>m.ncr),borderColor:'#ef4444',borderWidth:2,tension:.4,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b95a8',font:{size:10}}}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}}}}});
     else if(tc) trendChart=new Chart(tc,{type:'line',data:{labels:['無資料'],datasets:[{data:[0],borderColor:'#5a6478',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+
     const topCats = kpi.socByCategory.slice(0,8);
     if(cc && topCats.length > 0) catChart=new Chart(cc,{type:'bar',data:{labels:topCats.map(c=>c.name),datasets:[{data:topCats.map(c=>c.value),backgroundColor:PAL,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#8b95a8',font:{size:10}},grid:{display:false}}}}});
     else if(cc) catChart=new Chart(cc,{type:'bar',data:{labels:['無資料'],datasets:[{data:[0],backgroundColor:['#5a6478']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
   },100);
 }
 
-// ─── DEFICIENCY (from Sheet 1 live data) ─────────────────────
-let defTab = 'soc';
+// ─── DEFICIENCY ──────────────────────────────────────────────
+let defTab = 'soc'; // 'soc' or 'tpc'
 function renderDeficiency(){
   const el=document.getElementById('page-deficiency');
   if (!sheetLoaded) {
@@ -1034,18 +1127,15 @@ function renderDeficiency(){
     return;
   }
   const g = gsheetData;
-  // SOC: already_solved 不是 true → 未改善
   const socOpen = g.allData.filter(d => d.source === 'SOC' && d.type !== '優點' && !d.solved);
-  // TPC NCR: is_closed 不是 "是" → 未改善
   const tpcOpen = g.allData.filter(d => d.source === 'TPC NCR' && d.type !== '優點' && !d.solved);
 
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div style="display:flex;gap:6px">
-        <button class="pill-btn" style="background:${defTab==='soc'?'var(--amberBg)':'var(--card)'};color:${defTab==='soc'?'var(--amber)':'var(--textSec)'}" onclick="defTab='soc';renderDeficiency()">SOC 未改善 (${socOpen.length})</button>
-        <button class="pill-btn" style="background:${defTab==='tpc'?'var(--blueBg)':'var(--card)'};color:${defTab==='tpc'?'var(--blue)':'var(--textSec)'}" onclick="defTab='tpc';renderDeficiency()">TPC NCR 未改善 (${tpcOpen.length})</button>
+        <button class="pill-btn" style="background:${defTab==='soc'?'var(--amberBg)':'var(--card)'};color:${defTab==='soc'?'var(--amber)':'var(--textSec)'}" onclick="defTab='soc';renderDeficiency()">SOC 未結案 (${socOpen.length})</button>
+        <button class="pill-btn" style="background:${defTab==='tpc'?'var(--blueBg)':'var(--card)'};color:${defTab==='tpc'?'var(--blue)':'var(--textSec)'}" onclick="defTab='tpc';renderDeficiency()">TPC NCR 未結案 (${tpcOpen.length})</button>
       </div>
-      <div style="font-size:11px;color:var(--textMut)">共 ${socOpen.length + tpcOpen.length} 筆未改善 · 資料來源：Sheet 1 即時</div>
     </div>
     ${defTab === 'soc' ? renderSOCTable(socOpen) : renderTPCTable(tpcOpen)}`;
 }
@@ -1062,7 +1152,7 @@ function renderSOCTable(items) {
         <td>${badge(d.defectCategory==='Condition'?'條件':'行為',d.defectCategory==='Condition'?'var(--amber)':'var(--red)')}</td>
         <td>${d.category||'-'}</td>
         <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.description||'').replace(/"/g,'&quot;')}">${d.description||'-'}</td>
-      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:36px;color:var(--textMut)">全部已改善 🎉</td></tr>'}</tbody>
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:36px;color:var(--textMut)">全部已結案 🎉</td></tr>'}</tbody>
   </table></div></div>`;
 }
 
@@ -1074,149 +1164,39 @@ function renderTPCTable(items) {
         <td style="font-family:var(--mono);font-weight:600;color:var(--blue)">${d.ncrNo||'-'}</td>
         <td style="white-space:nowrap">${d.date||'-'}</td>
         <td style="font-weight:600">${d.subcontractor||'-'}</td>
-        <td>${badge(d.defectCategory==='Condition'?'條件':d.defectCategory==='Action'?'行為':'缺失',d.defectCategory==='Condition'?'var(--amber)':d.defectCategory==='Action'?'var(--red)':'var(--blue)')}${d.isPenalty?' '+badge('罰單','var(--red)'):''}</td>
+        <td>${badge(d.defectCategory==='Condition'?'條件':d.defectCategory==='Action'?'行為':d.type,d.defectCategory==='Condition'?'var(--amber)':d.type==='罰單'?'var(--red)':'var(--red)')}</td>
         <td>${d.category||'-'}</td>
         <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.description||'').replace(/"/g,'&quot;')}">${d.description||'-'}</td>
         <td style="font-family:var(--mono);color:${d.penaltyAmount?'var(--red)':'var(--textMut)'}">${d.penaltyAmount ? 'NT$'+d.penaltyAmount.toLocaleString() : '-'}</td>
-      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:36px;color:var(--textMut)">全部已改善 🎉</td></tr>'}</tbody>
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:36px;color:var(--textMut)">全部已結案 🎉</td></tr>'}</tbody>
   </table></div></div>`;
 }
 
-// ─── DOCUMENTS (from Sheet 2 via GAS) ────────────────────────
+// ─── DOCUMENTS ───────────────────────────────────────────────
 function renderDocuments(){
   const el=document.getElementById('page-documents');
-  const docs = getDocuments().filter(d => {
-    // Filter out placeholder/empty items
-    const name = d.name || '';
-    return name && name !== '(新增文件)' && name.trim() !== '';
-  });
-
-  // Group documents by section
-  const sections = {};
-  docs.forEach(d => {
-    const sec = d.section || d.sec || '未分類';
-    if (!sections[sec]) sections[sec] = [];
-    sections[sec].push(d);
-  });
-
-  // If no cloud data, show default structure
-  const hasDocs = Object.keys(sections).length > 0;
-  const defaultDocs = [
-    {sec:"安全管理程序 Safety Procedures",items:[{code:"NMDC-HSE-001",name:"HSE Management Plan",status:"complete",fileUrl:""},{code:"NMDC-HSE-002",name:"PTW Procedure",status:"complete",fileUrl:""},{code:"NMDC-HSE-003",name:"LOTO Procedure",status:"complete",fileUrl:""},{code:"NMDC-HSE-004",name:"Lifting & Rigging Procedure",status:"in-progress",fileUrl:""},{code:"NMDC-HSE-005",name:"Confined Space Entry",status:"complete",fileUrl:""},{code:"NMDC-HSE-006",name:"Hot Work Procedure",status:"complete",fileUrl:""}]},
-    {sec:"ISP 個別安全施工計畫",items:[{code:"ISP-001",name:"海義 管線焊接 ISP",status:"complete",fileUrl:""},{code:"ISP-002",name:"高虎 吊掛作業 ISP",status:"in-progress",fileUrl:""},{code:"ISP-003",name:"美綺 電氣施工 ISP",status:"complete",fileUrl:""},{code:"ISP-004",name:"天力 風機安裝 ISP",status:"in-progress",fileUrl:""}]},
-    {sec:"風險評估 Risk Assessment",items:[{code:"NMDC-RA-001",name:"Submarine Pipeline Installation RA",status:"complete",fileUrl:""},{code:"NMDC-RA-002",name:"JSG High Pressure Grouting RA",status:"complete",fileUrl:""},{code:"NMDC-RA-003",name:"Marine Dredging RA",status:"in-progress",fileUrl:""}]},
-    {sec:"教育訓練 Training Materials",items:[{code:"NMDC-TR-001",name:"新進人員安全教育",status:"complete",fileUrl:""},{code:"NMDC-TR-002",name:"LOTO Training (中/英/泰)",status:"complete",fileUrl:""},{code:"NMDC-TR-003",name:"手部安全 Hand Safety",status:"complete",fileUrl:""}]},
-    {sec:"表格範本 Forms & Templates",items:[{code:"NMDC-FM-001",name:"BSA 行為安全觀察表",status:"complete",fileUrl:""},{code:"NMDC-FM-002",name:"TPC 缺失改善單",status:"complete",fileUrl:""},{code:"NMDC-FM-003",name:"TBM-KY 報告表",status:"complete",fileUrl:""}]}
-  ];
-
-  if (hasDocs) {
-    const readOnlyNotice = !gasConnected && !isAdmin ? `<div style="padding:10px 14px;background:var(--blueBg);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--cyan);display:flex;justify-content:space-between;align-items:center">
-      <span>📡 目前為唯讀模式。如需編輯請登入管理員並設定 GAS URL。</span>
-    </div>` : (!gasConnected && isAdmin ? `<div style="padding:10px 14px;background:var(--amberBg);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--amber);display:flex;justify-content:space-between;align-items:center">
-      <span>⚠️ GAS 未連線（此裝置）。編輯不會同步到雲端。</span>
-      <button class="btn btn-sm btn-pri" onclick="goPage('tools');setTimeout(()=>{activeTool='gas-url';renderTools()},100)">設定 GAS URL</button>
-    </div>` : '');
-    el.innerHTML=`${readOnlyNotice}${isAdmin?'<div style="margin-bottom:16px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-pri" onclick="addDocSection()">+ 新增分類區塊</button></div>':''}
-      ${Object.entries(sections).map(([sec,items],si)=>`<div style="margin-bottom:20px">
-        <h3 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--textSec)">📄 ${sec}</h3>
-        <div class="card">${items.map((doc,di)=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:${di<items.length-1?'1px solid rgba(30,39,56,.3)':'none'}">
-            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;min-width:90px">${doc.code||''}</span><span style="font-size:12px">${doc.name||''}</span></div>
-            <div style="display:flex;align-items:center;gap:8px">
-              ${badge(doc.status==='complete'?'✅ 完整':'🔄 更新中',doc.status==='complete'?'var(--green)':'var(--amber)')}
-              ${doc.fileUrl?`<a href="${doc.fileUrl}" target="_blank" class="btn btn-sm btn-def" style="text-decoration:none" title="下載/開啟檔案">📥 下載</a>`:`<span style="font-size:10px;color:var(--textMut)">未設連結</span>`}
-              ${isAdmin?`<button class="btn-ghost btn-sm" onclick="editCloudDoc('${sec}',${di})" title="編輯">✏️</button><button class="btn-ghost btn-sm" onclick="delCloudDoc('${sec}',${di})" title="刪除">🗑</button>`:''}
-            </div>
-          </div>`).join('')}
-          ${isAdmin?`<div style="padding:8px 16px;border-top:1px solid rgba(30,39,56,.3)"><button class="btn btn-ghost btn-sm" onclick="addDocItem_cloud('${sec}')">+ 新增文件</button></div>`:''}</div>
-      </div>`).join('')}
-      ${renderDocTips()}`;
-  } else {
-    // Use default structure (localStorage fallback)
-    el.innerHTML=`${isAdmin?'<div style="margin-bottom:16px;display:flex;justify-content:flex-end"><button class="btn btn-pri" onclick="addDocSection()">+ 新增分類區塊</button></div>':''}
-      <div style="padding:12px;background:var(--amberBg);border-radius:8px;margin-bottom:16px;font-size:12px;color:var(--amber)">⚠️ GAS 尚未連線或 Sheet 2 無文件資料，顯示預設文件結構。設定 GAS URL 後可雲端同步。</div>
-      ${defaultDocs.map((sec,si)=>`<div style="margin-bottom:20px">
-        <h3 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--textSec)">📄 ${sec.sec}</h3>
-        <div class="card">${sec.items.map((doc,di)=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:${di<sec.items.length-1?'1px solid rgba(30,39,56,.3)':'none'}">
-            <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;min-width:90px">${doc.code}</span><span style="font-size:12px">${doc.name}</span></div>
-            <div style="display:flex;align-items:center;gap:8px">
-              ${badge(doc.status==='complete'?'✅ 完整':'🔄 更新中',doc.status==='complete'?'var(--green)':'var(--amber)')}
-              ${doc.fileUrl?`<a href="${doc.fileUrl}" target="_blank" class="btn btn-sm btn-def" style="text-decoration:none">📥 下載</a>`:`<span style="font-size:10px;color:var(--textMut)">未設連結</span>`}
-            </div>
-          </div>`).join('')}</div>
-      </div>`).join('')}
-      ${renderDocTips()}`;
-  }
-}
-
-function renderDocTips(){
-  return `<div class="card" style="padding:16px;margin-top:10px;border-left:3px solid var(--amber)">
-    <div style="font-size:12px;color:var(--textSec);line-height:1.8">
-      <strong style="color:var(--amber)">💡 檔案連結使用方式：</strong><br>
-      ① PDF/文件 → 上傳至 <strong>Google Drive</strong>，右鍵「共用」→「知道連結的人都可以檢視」→ 複製連結貼入<br>
-      ② 若要直接下載，將 Google Drive 連結中的 <code>/view</code> 改成 <code>/export?format=pdf</code><br>
-      ③ HTML工具檔 → 上傳到 GitHub repo 的 <code>tools/</code> 資料夾
-    </div>
-  </div>`;
-}
-
-// Cloud document CRUD
-async function addDocSection(){
-  showGenModal('新增分類區塊',`<div class="field"><label>區塊名稱</label><input class="inp" id="secName" placeholder="例: ISP 個別安全施工計畫"></div><button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDocSec_cloud()">新增</button>`);
-}
-async function saveDocSec_cloud(){
-  const n=document.getElementById('secName').value;if(!n)return;
-  // Don't create placeholder row — just prompt to add first item directly
-  closeModal('genModal');
-  addDocItem_cloud(n);
-}
-function addDocItem_cloud(sec){
-  showGenModal('新增文件',`
-    <div class="field"><label>編號</label><input class="inp" id="diCode" placeholder="NMDC-HSE-007"></div>
-    <div class="field"><label>名稱</label><input class="inp" id="diName" placeholder="文件名稱"></div>
-    <div class="field"><label>狀態</label><select class="sel" id="diStatus"><option value="complete">完整</option><option value="in-progress" selected>更新中</option></select></div>
-    <div class="field"><label>檔案連結（Google Drive / 網址）</label><input class="inp" id="diUrl" placeholder="https://drive.google.com/file/d/..."></div>
-    <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">貼上 Google Drive 分享連結或任何可下載的網址</p>
-    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDocItem_cloud('${sec}')">新增</button>`);
-}
-async function saveDocItem_cloud(sec){
-  const c=document.getElementById('diCode').value,n=document.getElementById('diName').value,s=document.getElementById('diStatus').value,u=document.getElementById('diUrl').value;
-  if(!c||!n)return;
-  cloudData.documents.push({section:sec, code:c, name:n, status:s, fileUrl:u});
-  if(gasConnected) await gasWrite('documents', cloudData.documents);
-  closeModal('genModal');toast('已新增');renderDocuments();
-}
-function editCloudDoc(sec, idx){
-  const docs = cloudData.documents.filter(d=>(d.section||d.sec)===sec);
-  const doc = docs[idx]; if(!doc)return;
-  showGenModal('編輯文件',`
-    <div class="field"><label>編號</label><input class="inp" id="eiCode" value="${doc.code||''}"></div>
-    <div class="field"><label>名稱</label><input class="inp" id="eiName" value="${doc.name||''}"></div>
-    <div class="field"><label>狀態</label><select class="sel" id="eiStatus"><option value="complete"${doc.status==='complete'?' selected':''}>完整</option><option value="in-progress"${doc.status==='in-progress'?' selected':''}>更新中</option></select></div>
-    <div class="field"><label>檔案連結</label><input class="inp" id="eiUrl" value="${doc.fileUrl||''}"></div>
-    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveEditCloudDoc('${sec}',${idx})">儲存</button>`);
-}
-async function saveEditCloudDoc(sec, idx){
-  const docs = cloudData.documents.filter(d=>(d.section||d.sec)===sec);
-  const doc = docs[idx]; if(!doc)return;
-  // Find the actual index in the flat array
-  const realIdx = cloudData.documents.indexOf(doc);
-  if(realIdx>=0){
-    cloudData.documents[realIdx] = {section:sec, code:document.getElementById('eiCode').value, name:document.getElementById('eiName').value, status:document.getElementById('eiStatus').value, fileUrl:document.getElementById('eiUrl').value};
-    if(gasConnected) await gasWrite('documents', cloudData.documents);
-  }
-  closeModal('genModal');toast('已更新');renderDocuments();
-}
-async function delCloudDoc(sec, idx){
-  const docs = cloudData.documents.filter(d=>(d.section||d.sec)===sec);
-  const doc = docs[idx]; if(!doc)return;
-  const realIdx = cloudData.documents.indexOf(doc);
-  if(realIdx>=0){
-    cloudData.documents.splice(realIdx,1);
-    if(gasConnected) await gasWrite('documents', cloudData.documents);
-  }
-  toast('已刪除');renderDocuments();
+  el.innerHTML=`${isAdmin?'<div style="margin-bottom:16px;display:flex;justify-content:flex-end"><button class="btn btn-pri" onclick="addDocSection()">+ 新增分類區塊</button></div>':''}
+    ${state.docs.map((sec,si)=>`<div style="margin-bottom:20px">
+      <h3 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--textSec)">📄 ${sec.sec}</h3>
+      <div class="card">${sec.items.map((doc,di)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:${di<sec.items.length-1?'1px solid rgba(30,39,56,.3)':'none'}">
+          <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;min-width:90px">${doc.code}</span><span style="font-size:12px">${doc.name}</span></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${badge(doc.status==='complete'?'✅ 完整':'🔄 更新中',doc.status==='complete'?'var(--green)':'var(--amber)')}
+            ${doc.fileUrl?`<a href="${doc.fileUrl}" target="_blank" class="btn btn-sm btn-def" style="text-decoration:none" title="下載/開啟檔案">📥 下載</a>`:`<span style="font-size:10px;color:var(--textMut)">未設連結</span>`}
+            ${isAdmin?`<button class="btn-ghost btn-sm" onclick="editDocItem(${si},${di})" title="編輯">✏️</button><button class="btn-ghost btn-sm" onclick="delDoc(${si},${di})" title="刪除">🗑</button>`:''}
+          </div>
+        </div>`).join('')}
+        ${isAdmin?`<div style="padding:8px 16px;border-top:1px solid rgba(30,39,56,.3)"><button class="btn btn-ghost btn-sm" onclick="addDocItem(${si})">+ 新增文件</button></div>`:''}</div>
+    </div>`).join('')}
+    <div class="card" style="padding:16px;margin-top:10px;border-left:3px solid var(--amber)">
+      <div style="font-size:12px;color:var(--textSec);line-height:1.8">
+        <strong style="color:var(--amber)">💡 檔案連結使用方式：</strong><br>
+        ① PDF/文件 → 上傳至 <strong>Google Drive</strong>，右鍵「共用」→「知道連結的人都可以檢視」→ 複製連結貼入<br>
+        ② 若要直接下載，將 Google Drive 連結中的 <code>/view</code> 改成 <code>/export?format=pdf</code><br>
+        ③ HTML工具檔 → 上傳到 GitHub repo 的 <code>tools/</code> 資料夾，使用 <code>https://vivaaichat.github.io/safety-e-system/tools/檔名.html</code>
+      </div>
+    </div>`;
 }
 
 // ─── TOOLS ───────────────────────────────────────────────────
@@ -1234,28 +1214,13 @@ function renderTools(){
       <div class="field"><label>吊索數</label><select class="sel" id="sLegs" onchange="calcSling()"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
     </div><div id="slingResult" class="grid grid-3"></div><div id="slingWarn"></div></div>`;
     setTimeout(calcSling,0);return}
-  if(activeTool==='gas-url'){
-    const curUrl = getGasUrl();
-    el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
-    <div class="card" style="padding:22px;margin-top:14px;max-width:600px"><h3 style="margin-bottom:6px;font-size:15px;font-weight:700">🔗 GAS URL 設定</h3>
-    <p style="font-size:11px;color:var(--textMut);margin-bottom:14px">連接 Google Apps Script 以啟用 Sheet 2 讀寫（公告/追蹤/文件/班表）</p>
-    <div class="field"><label>Google Apps Script Web App URL</label><input class="inp" id="gasUrlInp" value="${curUrl}" placeholder="https://script.google.com/macros/s/.../exec"></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-pri" onclick="saveGasUrl()">💾 儲存並測試</button>
-      <button class="btn btn-def" onclick="testGasConnection()">🔍 測試連線</button>
-    </div>
-    <div id="gasTestResult" style="margin-top:12px"></div>
-    <div class="card" style="margin-top:18px;padding:14px;border-left:3px solid var(--cyan)">
-      <div style="font-size:12px;color:var(--textSec);line-height:1.8">
-        <strong style="color:var(--cyan)">📋 GAS 部署步驟：</strong><br>
-        ① 開啟 Sheet 2 → 擴充功能 → Apps Script<br>
-        ② 貼上 API 程式碼（處理 read/write 請求）<br>
-        ③ 部署 → 新增部署 → Web App → 存取權限：所有人<br>
-        ④ 複製 URL 貼入上方欄位
-      </div>
-    </div></div>`;return}
-  const ct=localState.tools.find(t=>t.id===activeTool&&t.type==='custom');
-  if(ct){const iframeSrc=ct.htmlUrl?ct.htmlUrl:'';
+  if(activeTool==='gas-url'){el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
+    <div class="card" style="padding:22px;margin-top:14px;max-width:550px"><h3 style="margin-bottom:6px;font-size:15px;font-weight:700">🔗 GAS URL 設定</h3>
+    <p style="font-size:11px;color:var(--textMut);margin-bottom:14px">連接Google Apps Script</p>
+    <div class="field"><label>URL</label><input class="inp" id="gasUrlInp" placeholder="https://script.google.com/macros/s/..."></div>
+    <button class="btn btn-pri" onclick="localStorage.setItem('gasUrl',document.getElementById('gasUrlInp').value);toast('已儲存')">儲存</button></div>`;return}
+  const ct=state.tools.find(t=>t.id===activeTool&&t.type==='custom');
+  if(ct){const iframeSrc=ct.htmlUrl?ct.htmlUrl:(ct.htmlContent?'':'');
     el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
     <div class="card" style="margin-top:14px;overflow:hidden"><div style="padding:12px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px">${ct.name}</div>
     ${ct.htmlUrl?`<iframe src="${ct.htmlUrl}" style="width:100%;height:600px;border:none" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>`
@@ -1263,40 +1228,15 @@ function renderTools(){
     :'<div style="padding:40px;text-align:center;color:var(--textMut)">尚未設定HTML網址或上傳檔案</div>'}</div>`;return}
 
   el.innerHTML=`${isAdmin?'<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn btn-pri" onclick="addTool()">+ 新增工具</button></div>':''}
-    <div class="grid grid-3">${localState.tools.map(t=>`
+    <div class="grid grid-3">${state.tools.map(t=>`
       <div class="card" style="padding:18px;cursor:pointer;position:relative" onclick="activeTool='${t.id}';renderTools()">
         <div style="display:flex;align-items:flex-start;gap:14px">
           <div style="width:42px;height:42px;border-radius:10px;background:${t.color||'var(--amber)'}15;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${t.icon||'🔧'}</div>
           <div><div style="font-size:13px;font-weight:700;margin-bottom:3px">${t.name}</div><div style="font-size:11px;color:var(--textMut)">${t.desc}</div></div>
         </div>
-        ${isAdmin&&t.type==='custom'?`<button class="btn-ghost btn-sm" style="position:absolute;top:8px;right:8px" onclick="event.stopPropagation();delTool('${t.id}')">🗑</button>`:''}
+        ${isAdmin?`<button class="btn-ghost btn-sm" style="position:absolute;top:8px;right:8px" onclick="event.stopPropagation();delTool('${t.id}')">🗑</button>`:''}
       </div>`).join('')}</div>`;
 }
-
-function saveGasUrl(){
-  const url=document.getElementById('gasUrlInp').value.trim();
-  localStorage.setItem('gasUrl',url);
-  toast('已儲存');
-  testGasConnection();
-}
-async function testGasConnection(){
-  const el=document.getElementById('gasTestResult');
-  el.innerHTML='<span style="color:var(--amber)"><span class="sync-spin">⟳</span> 測試中...</span>';
-  try {
-    const data = await gasRead('announcements');
-    if(data !== null){
-      el.innerHTML=`<span style="color:var(--green)">✅ 連線成功！取得 ${Array.isArray(data)?data.length:'?'} 筆公告</span>`;
-      gasConnected = true;
-      await loadSheet2Data();
-      renderPage(currentPage);
-    } else {
-      el.innerHTML='<span style="color:var(--red)">❌ 連線失敗，請檢查 URL</span>';
-    }
-  } catch(e) {
-    el.innerHTML=`<span style="color:var(--red)">❌ ${e.message}</span>`;
-  }
-}
-
 function calcSling(){
   const load=+document.getElementById('sLoad').value,angle=+document.getElementById('sAngle').value,legs=+document.getElementById('sLegs').value;
   const f=1/Math.cos((angle/2)*Math.PI/180),tpl=(load/legs)*f;
@@ -1304,17 +1244,97 @@ function calcSling(){
   document.getElementById('slingWarn').innerHTML=angle>120?'<div style="margin-top:14px;padding:10px;background:var(--redBg);border-radius:8px;color:var(--red);font-size:11px;font-weight:600">⚠️ 夾角超過120°！</div>':'';
 }
 
-function addTool(){showGenModal('新增工具',`
-  <div class="field"><label>工具名稱</label><input class="inp" id="tlName" placeholder="名稱"></div>
-  <div class="field"><label>說明</label><input class="inp" id="tlDesc" placeholder="描述"></div>
-  <div class="field"><label>方式一：HTML 網址</label><input class="inp" id="tlUrl" placeholder="例: tools/bsa-form.html 或完整網址"></div>
-  <div class="field"><label>方式二：上傳 HTML</label><input type="file" accept=".html,.htm" id="tlFile" style="font-size:12px;color:var(--textSec)"><div id="tlFileStatus" style="margin-top:6px"></div></div>
-  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTool()">新增工具</button>`);
-  setTimeout(()=>{document.getElementById('tlFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{document.getElementById('tlFile').dataset.content=ev.target.result;document.getElementById('tlFileStatus').innerHTML=badge('✅ 已載入 '+(ev.target.result.length/1024).toFixed(1)+'KB','var(--green)')};r.readAsText(f)}},0);
+// ─── TRACKING ────────────────────────────────────────────────
+function renderTracking(){
+  const el=document.getElementById('page-tracking');
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--textSec)">共 ${state.trk.length} 項 · 待辦 ${state.trk.filter(t=>t.status==='pending').length} · 進行中 ${state.trk.filter(t=>t.status==='in-progress').length} · 完成 ${state.trk.filter(t=>t.status==='done').length}</div>
+      ${isAdmin?'<button class="btn btn-pri" onclick="addTracking()">+ 新增</button>':''}
+    </div>
+    ${state.trk.map(t=>{const od=t.status!=='done'&&new Date(t.deadline)<new Date();return`
+      <div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid ${t.status==='done'?'var(--green)':t.status==='in-progress'?'var(--blue)':'var(--amber)'}">
+        <div style="flex:1"><div style="font-size:13px;font-weight:600;margin-bottom:3px;text-decoration:${t.status==='done'?'line-through':'none'};opacity:${t.status==='done'?.6:1}">${t.item}</div>
+          <div style="font-size:10px;color:var(--textMut);display:flex;gap:10px;flex-wrap:wrap"><span>👤 ${(t.assignees||[]).join(', ')}</span><span style="color:${od?'var(--red)':'var(--textMut)'}">📅 ${t.deadline}${od?' ⚠️':''}</span>${badge(t.priority==='high'?'高':t.priority==='medium'?'中':'低',t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--amber)':'var(--green)')}</div>
+          ${t.note?`<div style="font-size:11px;color:var(--textSec);margin-top:4px">${t.note}</div>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${isAdmin?`<button class="btn btn-sm ${t.status==='done'?'btn-success':'btn-def'}" onclick="cycleTrack(${t.id})">${t.status==='done'?'✅':t.status==='in-progress'?'🔄':'⏳'}</button><button class="btn btn-danger btn-sm" onclick="delTrack(${t.id})">🗑</button>`
+          :badge(t.status==='done'?'✅ 完成':t.status==='in-progress'?'🔄 進行中':'⏳ 待辦',t.status==='done'?'var(--green)':t.status==='in-progress'?'var(--blue)':'var(--amber)')}
+        </div>
+      </div>`}).join('')}`;
 }
-function saveTool(){const n=document.getElementById('tlName').value,d=document.getElementById('tlDesc').value,u=document.getElementById('tlUrl').value,h=document.getElementById('tlFile').dataset?.content||'';if(!n)return;localState.tools.push({id:Date.now().toString(),name:n,desc:d,icon:'🔧',color:'var(--cyan)',type:'custom',htmlUrl:u,htmlContent:h});saveLocal();closeModal('genModal');toast('已新增');renderTools()}
-function delTool(id){localState.tools=localState.tools.filter(t=>t.id!==id);saveLocal();renderTools();toast('已刪除')}
 
+// ─── SCHEDULE ────────────────────────────────────────────────
+function renderSchedule(){
+  const sc=state.schedule;const year=parseInt(sc.month.split('-')[0]),mon=parseInt(sc.month.split('-')[1]);
+  const dim=new Date(year,mon,0).getDate();const pp=sc.people||[];
+  const el=document.getElementById('page-schedule');
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="month" class="inp" value="${sc.month}" onchange="state.schedule.month=this.value;saveState();renderSchedule()" style="width:160px;padding:6px 10px">
+        <div style="display:flex;gap:6px">${Object.entries(SCHED_LABEL).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--textSec)"><span style="width:12px;height:12px;border-radius:3px;background:${SCHED_COLOR[k]};display:inline-block"></span>${v}</span>`).join('')}</div>
+      </div>
+      ${isAdmin?'<div style="display:flex;gap:6px"><button class="btn btn-pri" onclick="addSchedulePerson()">+ 新增人員</button><button class="btn btn-def" onclick="addTeamMember()">👥 管理團隊</button></div>':''}
+    </div>
+    <div class="card" style="overflow:auto"><table class="sched-table">
+      <thead><tr><th class="sched-name-head" style="padding:8px 10px">人員</th>
+        ${Array.from({length:dim},(_,i)=>{const d=new Date(year,mon-1,i+1);const wd=d.getDay();return`<th style="color:${wd===0||wd===6?'var(--red)':'var(--textMut)'}">${i+1}<div style="font-size:7px">${'日一二三四五六'[wd]}</div></th>`}).join('')}
+        ${isAdmin?'<th style="min-width:28px"></th>':''}
+      </tr></thead>
+      <tbody>${pp.map((p,pi)=>`<tr>
+        <td class="sched-name">${p.name}</td>
+        ${Array.from({length:dim},(_,di)=>{const val=p.days?.[di]||'R';return`<td>${isAdmin?`<select class="sched-select" style="background:${SCHED_COLOR[val]||'var(--border)'}" onchange="updateSchedCell(${pi},${di},this.value);this.style.background=SCHED_COLOR[this.value]">${Object.keys(SCHED_LABEL).map(k=>`<option value="${k}"${k===val?' selected':''}>${k}</option>`).join('')}</select>`:`<div class="sched-cell" style="background:${SCHED_COLOR[val]||'var(--border)'}">${val}</div>`}</td>`}).join('')}
+        ${isAdmin?`<td><button class="btn-ghost btn-sm" onclick="delSchedPerson(${pi})">🗑</button></td>`:''}</tr>`).join('')}</tbody>
+    </table></div>`;
+}
+function updateSchedCell(pi,di,val){state.schedule.people[pi].days[di]=val;saveState()}
+function addSchedulePerson(){const name=prompt('輸入姓名');if(!name)return;state.schedule.people.push({name,days:Array.from({length:31},()=>'R')});saveState();renderSchedule();toast('已新增')}
+function delSchedPerson(pi){state.schedule.people.splice(pi,1);saveState();renderSchedule();toast('已刪除')}
+
+// ═══════════════════════════════════════════════════════════════
+// CRUD ACTIONS
+// ═══════════════════════════════════════════════════════════════
+function addAnnouncement(){
+  showGenModal('📢 新增公告',`
+    <div class="field"><label>公告內容</label><div class="rich-editor"><div class="rich-toolbar">
+      <button onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button>
+      <button onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button>
+      <button onmousedown="event.preventDefault();document.execCommand('underline')"><u>U</u></button>
+      <button onmousedown="event.preventDefault();document.execCommand('insertUnorderedList')">•</button>
+    </div><div contenteditable class="rich-content" id="annContent" data-placeholder="輸入公告內容..."></div></div></div>
+    <div class="field"><label>優先度</label><select class="sel" id="annPri"><option value="high">🔴 重要</option><option value="medium" selected>🟡 一般</option></select></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveAnn()">發布公告</button>`);
+}
+function saveAnn(){
+  const c=document.getElementById('annContent').innerHTML,p=document.getElementById('annPri').value;
+  if(!c.trim())return;state.ann.unshift({id:Date.now(),date:today(),content:c,priority:p});saveState();closeModal('genModal');toast('公告已發布');renderPage(currentPage);
+}
+function delAnn(id){state.ann=state.ann.filter(a=>a.id!==id);saveState();renderPage(currentPage);toast('已刪除')}
+
+function addTracking(){
+  showGenModal('📋 新增追蹤事項',`
+    <div class="field"><label>事項</label><input class="inp" id="trkItem" placeholder="事項內容..."></div>
+    <div class="field"><label>負責人</label><div style="display:flex;flex-wrap:wrap;gap:4px" id="trkAssignees">${getTeam().map(p=>`<button class="pill-btn" style="background:transparent;border:1px solid var(--border);color:var(--textSec);font-size:11px" onclick="this.dataset.sel=this.dataset.sel==='1'?'':'1';this.style.background=this.dataset.sel==='1'?'var(--amberBg)':'transparent';this.style.color=this.dataset.sel==='1'?'var(--amber)':'var(--textSec)'" data-name="${p}">${p}</button>`).join('')}</div></div>
+    <div class="field"><label>期限</label><input class="inp" type="date" id="trkDeadline"></div>
+    <div class="field"><label>優先度</label><select class="sel" id="trkPri"><option value="high">🔴 高</option><option value="medium" selected>🟡 中</option><option value="low">🟢 低</option></select></div>
+    <div class="field"><label>備註</label><div class="rich-editor"><div class="rich-toolbar"><button onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button><button onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button></div><div contenteditable class="rich-content" id="trkNote" data-placeholder="備註..."></div></div></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTrk()">新增</button>`);
+}
+function saveTrk(){
+  const item=document.getElementById('trkItem').value;if(!item)return;
+  const assignees=[...document.querySelectorAll('#trkAssignees button[data-sel="1"]')].map(b=>b.dataset.name);
+  state.trk.unshift({id:Date.now(),item,assignees,deadline:document.getElementById('trkDeadline').value,priority:document.getElementById('trkPri').value,status:'pending',note:document.getElementById('trkNote').innerHTML});
+  saveState();closeModal('genModal');toast('已新增');renderPage(currentPage);
+}
+function cycleTrack(id){const c={pending:'in-progress','in-progress':'done',done:'pending'};const t=state.trk.find(x=>x.id===id);if(t)t.status=c[t.status];saveState();renderTracking();toast('已更新')}
+function delTrack(id){state.trk=state.trk.filter(t=>t.id!==id);saveState();renderTracking();toast('已刪除')}
+
+function addDeficiency(){
+  showGenModal('⚠️ 新增TPC缺失單',`<div id="defFormArea"></div>`,600);
+  setTimeout(()=>renderDefForm('defFormArea'),0);
+}
 function renderDefForm(containerId){
   document.getElementById(containerId).innerHTML=`
     <div class="grid grid-2" style="gap:12px">
@@ -1327,177 +1347,81 @@ function renderDefForm(containerId){
     </div>
     <div class="field"><label>缺失說明</label><textarea class="txa" id="dfDesc" placeholder="描述..." oninput="previewSev()"></textarea></div>
     <div id="sevPreview" style="margin-bottom:12px"></div>
-    <p style="font-size:11px;color:var(--textMut);margin-bottom:12px">⚠️ 此功能為本地建單參考。正式缺失以 Sheet 1 的 SOC/TPC NCR 資料為準。</p>
-    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="toast('缺失單已建立（本地）')">建立缺失單</button>`;
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDef()">建立缺失單</button>`;
 }
 function previewSev(){
   const desc=document.getElementById('dfDesc').value,cat=document.getElementById('dfCat')?.value||'';
   if(desc&&cat){const s=autoSeverity(desc,cat);document.getElementById('sevPreview').innerHTML=badge(SEV_LABEL[s]+' (系統判定)',SEV_COLOR[s])}
 }
-
-// ─── TRACKING (from Sheet 2 via GAS) ─────────────────────────
-function renderTracking(){
-  const trk = getTracking();
-  const el=document.getElementById('page-tracking');
-  el.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:12px;color:var(--textSec)">共 ${trk.length} 項 · 待辦 ${trk.filter(t=>t.status==='pending').length} · 進行中 ${trk.filter(t=>t.status==='in-progress').length} · 完成 ${trk.filter(t=>t.status==='done').length}${gasConnected?' · <span style="color:var(--green)">● 雲端同步</span>':''}</div>
-      ${isAdmin?'<button class="btn btn-pri" onclick="addTracking()">+ 新增</button>':''}
+function saveDef(){
+  const date=document.getElementById('dfDate').value,due=document.getElementById('dfDue').value,loc=document.getElementById('dfLoc').value,con=document.getElementById('dfCon').value,cat=document.getElementById('dfCat').value,desc=document.getElementById('dfDesc').value;
+  if(!date||!due||!loc||!con||!cat||!desc)return toast('請填寫所有欄位','error');
+  const no='TPC-2026-'+String(state.def.length+1).padStart(3,'0');
+  state.def.unshift({id:Date.now(),no,date,location:loc,contractor:con,category:cat,description:desc,status:'open',dueDate:due,response:'',severity:autoSeverity(desc,cat)});
+  saveState();closeModal('genModal');activeTool=null;toast('缺失單已建立');renderPage(currentPage);
+}
+function viewDef(id){
+  const d=state.def.find(x=>x.id===id);if(!d)return;
+  showGenModal('缺失單 '+d.no,`
+    <div class="grid grid-2" style="gap:12px;margin-bottom:14px">
+      ${[['編號',d.no,'var(--amber)'],['日期',d.date],['地點',d.location],['承包商',d.contractor],['類別',d.category]].map(([l,v,c])=>`<div><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">${l}</div><div style="font-size:13px;${c?'font-weight:700;color:'+c+';font-family:var(--mono)':''}">${v}</div></div>`).join('')}
+      <div><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">嚴重度</div>${badge(SEV_LABEL[d.severity],SEV_COLOR[d.severity])}</div>
     </div>
-    ${trk.map((t,ti)=>{const od=t.status!=='done'&&t.deadline&&new Date(t.deadline)<new Date();const assignees=trkAssignees(t);return`
-      <div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid ${t.status==='done'?'var(--green)':t.status==='in-progress'?'var(--blue)':'var(--amber)'}">
-        <div style="flex:1"><div style="font-size:13px;font-weight:600;margin-bottom:3px;text-decoration:${t.status==='done'?'line-through':'none'};opacity:${t.status==='done'?.6:1}">${t.item||''}</div>
-          <div style="font-size:10px;color:var(--textMut);display:flex;gap:10px;flex-wrap:wrap"><span>👤 ${assignees.join(', ')}</span><span style="color:${od?'var(--red)':'var(--textMut)'}">📅 ${t.deadline||''}${od?' ⚠️':''}</span>${badge(t.priority==='high'?'高':t.priority==='medium'?'中':'低',t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--amber)':'var(--green)')}</div>
-          ${t.note?`<div style="font-size:11px;color:var(--textSec);margin-top:4px">${t.note}</div>`:''}
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          ${isAdmin?`<button class="btn btn-sm ${t.status==='done'?'btn-success':'btn-def'}" onclick="cycleTrack(${ti})">${t.status==='done'?'✅':t.status==='in-progress'?'🔄':'⏳'}</button><button class="btn btn-danger btn-sm" onclick="delTrack(${ti})">🗑</button>`
-          :badge(t.status==='done'?'✅ 完成':t.status==='in-progress'?'🔄 進行中':'⏳ 待辦',t.status==='done'?'var(--green)':t.status==='in-progress'?'var(--blue)':'var(--amber)')}
-        </div>
-      </div>`}).join('')}`;
+    <div style="margin-bottom:14px"><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">說明</div><div style="font-size:12px;line-height:1.6;padding:10px;background:var(--bg);border-radius:8px">${d.description}</div></div>
+    <div style="margin-bottom:14px"><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">期限</div><div style="font-size:13px;font-weight:600;color:${isOverdue(d)?'var(--red)':'var(--text)'}">${d.dueDate}${isOverdue(d)?' ⚠️ 逾期':''}</div></div>
+    ${d.response?`<div style="margin-bottom:14px"><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">改善回覆</div><div style="font-size:12px;padding:10px;background:var(--bg);border-radius:8px">${d.response}</div></div>`:''}
+    ${isAdmin?`
+      <div class="field"><label>狀態</label><select class="sel" id="vdStatus"><option value="open"${d.status==='open'?' selected':''}>待改善</option><option value="in-progress"${d.status==='in-progress'?' selected':''}>改善中</option><option value="closed"${d.status==='closed'?' selected':''}>已結案</option></select></div>
+      <div class="field"><label>改善回覆</label><textarea class="txa" id="vdResponse">${d.response||''}</textarea></div>
+      <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="updateDef(${d.id})">更新</button>`:''}`,600);
+}
+function updateDef(id){
+  const d=state.def.find(x=>x.id===id);if(!d)return;
+  d.status=document.getElementById('vdStatus').value;d.response=document.getElementById('vdResponse').value;
+  saveState();closeModal('genModal');toast('已更新');renderPage(currentPage);
 }
 
-// ─── ANNOUNCEMENTS CRUD (Sheet 2 via GAS) ────────────────────
-function addAnnouncement(){
-  showGenModal('📢 新增公告',`
-    <div class="field"><label>公告內容</label><div class="rich-editor"><div class="rich-toolbar">
-      <button onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button>
-      <button onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button>
-      <button onmousedown="event.preventDefault();document.execCommand('underline')"><u>U</u></button>
-      <button onmousedown="event.preventDefault();document.execCommand('insertUnorderedList')">•</button>
-    </div><div contenteditable class="rich-content" id="annContent" data-placeholder="輸入公告內容..."></div></div></div>
-    <div class="field"><label>優先度</label><select class="sel" id="annPri"><option value="high">🔴 重要</option><option value="medium" selected>🟡 一般</option></select></div>
-    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveAnn()">發布公告</button>`);
-}
-async function saveAnn(){
-  const c=document.getElementById('annContent').innerHTML,p=document.getElementById('annPri').value;
-  if(!c.trim())return;
-  const newAnn = {id:Date.now(),date:today(),content:c,priority:p};
-  cloudData.announcements.unshift(newAnn);
-  if(gasConnected) await gasWrite('announcements', cloudData.announcements);
-  closeModal('genModal');toast('公告已發布');renderPage(currentPage);
-}
-async function delAnn(id){
-  cloudData.announcements = cloudData.announcements.filter(a=>String(a.id)!==String(id));
-  if(gasConnected) await gasWrite('announcements', cloudData.announcements);
-  renderPage(currentPage);toast('已刪除');
-}
+function addDocSection(){showGenModal('新增分類區塊',`<div class="field"><label>區塊名稱</label><input class="inp" id="secName" placeholder="例: ISP 個別安全施工計畫"></div><button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDocSec()">新增</button>`)}
+function saveDocSec(){const n=document.getElementById('secName').value;if(!n)return;state.docs.push({sec:n,items:[]});saveState();closeModal('genModal');toast('已新增');renderDocuments()}
+function addDocItem(si){showGenModal('新增文件',`
+  <div class="field"><label>編號</label><input class="inp" id="diCode" placeholder="NMDC-HSE-007"></div>
+  <div class="field"><label>名稱</label><input class="inp" id="diName" placeholder="文件名稱"></div>
+  <div class="field"><label>狀態</label><select class="sel" id="diStatus"><option value="complete">完整</option><option value="in-progress" selected>更新中</option></select></div>
+  <div class="field"><label>檔案連結（Google Drive / 網址）</label><input class="inp" id="diUrl" placeholder="https://drive.google.com/file/d/..."></div>
+  <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">貼上 Google Drive 分享連結或任何可下載的網址</p>
+  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDocItem(${si})">新增</button>`)}
+function saveDocItem(si){const c=document.getElementById('diCode').value,n=document.getElementById('diName').value,s=document.getElementById('diStatus').value,u=document.getElementById('diUrl').value;if(!c||!n)return;state.docs[si].items.push({code:c,name:n,status:s,fileUrl:u});saveState();closeModal('genModal');toast('已新增');renderDocuments()}
+function editDocItem(si,di){const doc=state.docs[si].items[di];showGenModal('編輯文件',`
+  <div class="field"><label>編號</label><input class="inp" id="eiCode" value="${doc.code}"></div>
+  <div class="field"><label>名稱</label><input class="inp" id="eiName" value="${doc.name}"></div>
+  <div class="field"><label>狀態</label><select class="sel" id="eiStatus"><option value="complete"${doc.status==='complete'?' selected':''}>完整</option><option value="in-progress"${doc.status==='in-progress'?' selected':''}>更新中</option></select></div>
+  <div class="field"><label>檔案連結（Google Drive / 網址）</label><input class="inp" id="eiUrl" value="${doc.fileUrl||''}"></div>
+  <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">貼上 Google Drive 分享連結，點擊「下載」即可直接開啟/下載</p>
+  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveEditDoc(${si},${di})">儲存</button>`)}
+function saveEditDoc(si,di){state.docs[si].items[di]={code:document.getElementById('eiCode').value,name:document.getElementById('eiName').value,status:document.getElementById('eiStatus').value,fileUrl:document.getElementById('eiUrl').value};saveState();closeModal('genModal');toast('已更新');renderDocuments()}
+function delDoc(si,di){state.docs[si].items.splice(di,1);saveState();renderDocuments();toast('已刪除')}
 
-// ─── TRACKING CRUD (Sheet 2 via GAS) ─────────────────────────
-function addTracking(){
-  showGenModal('📋 新增追蹤事項',`
-    <div class="field"><label>事項</label><input class="inp" id="trkItem" placeholder="事項內容..."></div>
-    <div class="field"><label>負責人</label><div style="display:flex;flex-wrap:wrap;gap:4px" id="trkAssignees">${getTeam().map(p=>`<button class="pill-btn" style="background:transparent;border:1px solid var(--border);color:var(--textSec);font-size:11px" onclick="this.dataset.sel=this.dataset.sel==='1'?'':'1';this.style.background=this.dataset.sel==='1'?'var(--amberBg)':'transparent';this.style.color=this.dataset.sel==='1'?'var(--amber)':'var(--textSec)'" data-name="${p}">${p}</button>`).join('')}</div></div>
-    <div class="field"><label>期限</label><input class="inp" type="date" id="trkDeadline"></div>
-    <div class="field"><label>優先度</label><select class="sel" id="trkPri"><option value="high">🔴 高</option><option value="medium" selected>🟡 中</option><option value="low">🟢 低</option></select></div>
-    <div class="field"><label>備註</label><div class="rich-editor"><div class="rich-toolbar"><button onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button><button onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button></div><div contenteditable class="rich-content" id="trkNote" data-placeholder="備註..."></div></div></div>
-    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTrk()">新增</button>`);
+function addTool(){showGenModal('新增工具',`
+  <div class="field"><label>工具名稱</label><input class="inp" id="tlName" placeholder="名稱"></div>
+  <div class="field"><label>說明</label><input class="inp" id="tlDesc" placeholder="描述"></div>
+  <div class="field"><label>方式一：HTML 網址（推薦 — 放在 GitHub repo 的 tools/ 資料夾）</label><input class="inp" id="tlUrl" placeholder="例: tools/bsa-form.html 或完整網址"></div>
+  <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">將 HTML 檔上傳到 repo 的 tools/ 資料夾，輸入相對路徑即可（無容量限制）</p>
+  <div class="field"><label>方式二：直接上傳 HTML 檔案（存在瀏覽器，有容量限制）</label><input type="file" accept=".html,.htm" id="tlFile" style="font-size:12px;color:var(--textSec)"><div id="tlFileStatus" style="margin-top:6px"></div></div>
+  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTool()">新增工具</button>`);
+  setTimeout(()=>{document.getElementById('tlFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{document.getElementById('tlFile').dataset.content=ev.target.result;document.getElementById('tlFileStatus').innerHTML=badge('✅ 已載入 '+(ev.target.result.length/1024).toFixed(1)+'KB','var(--green)')};r.readAsText(f)}},0);
 }
-async function saveTrk(){
-  const item=document.getElementById('trkItem').value;if(!item)return;
-  const assignees=[...document.querySelectorAll('#trkAssignees button[data-sel="1"]')].map(b=>b.dataset.name);
-  const newTrk = {id:Date.now(),item,assignees:assignees.join(','),deadline:document.getElementById('trkDeadline').value,priority:document.getElementById('trkPri').value,status:'pending',note:document.getElementById('trkNote').innerHTML};
-  cloudData.tracking.unshift(newTrk);
-  if(gasConnected) await gasWrite('tracking', cloudData.tracking);
-  closeModal('genModal');toast('已新增');renderPage(currentPage);
-}
-async function cycleTrack(idx){
-  const c={pending:'in-progress','in-progress':'done',done:'pending'};
-  const trk=cloudData.tracking;
-  if(trk[idx])trk[idx].status=c[trk[idx].status]||'pending';
-  if(gasConnected) await gasWrite('tracking', cloudData.tracking);
-  renderTracking();toast('已更新');
-}
-async function delTrack(idx){
-  cloudData.tracking.splice(idx,1);
-  if(gasConnected) await gasWrite('tracking', cloudData.tracking);
-  renderTracking();toast('已刪除');
-}
-
-// ─── SCHEDULE (from Sheet 2 via GAS) ─────────────────────────
-function renderSchedule(){
-  const schedData = getScheduleData();
-  const curMonth = document.getElementById('schedMonth')?.value || new Date().toISOString().slice(0,7);
-  const year=parseInt(curMonth.split('-')[0]),mon=parseInt(curMonth.split('-')[1]);
-  const dim=new Date(year,mon,0).getDate();
-
-  // Build people array from schedule data or defaults
-  let people = [];
-  if (schedData.length > 0) {
-    // Assume schedule data has: name, day1, day2, ..., day31 columns
-    people = schedData.map(row => {
-      const name = row.name || row['人員'] || '';
-      const days = [];
-      for (let d=1;d<=31;d++) {
-        days.push(row['d'+d] || row[String(d)] || row['day'+d] || (new Date(year,mon-1,d).getDay()%6===0?'H':'R'));
-      }
-      return {name, days};
-    });
-  }
-  if (people.length === 0) {
-    people = TEAM.map(p => ({name:p, days:Array.from({length:31},(_,i)=>{const wd=new Date(year,mon-1,i+1).getDay();return wd===0||wd===6?"H":"R"})}));
-  }
-
-  const el=document.getElementById('page-schedule');
-  el.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="month" class="inp" id="schedMonth" value="${curMonth}" onchange="renderSchedule()" style="width:160px;padding:6px 10px">
-        <div style="display:flex;gap:6px">${Object.entries(SCHED_LABEL).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--textSec)"><span style="width:12px;height:12px;border-radius:3px;background:${SCHED_COLOR[k]};display:inline-block"></span>${v}</span>`).join('')}</div>
-        ${gasConnected?'<span style="font-size:10px;color:var(--green)">● 雲端同步</span>':''}
-      </div>
-      ${isAdmin?'<div style="display:flex;gap:6px"><button class="btn btn-pri" onclick="addSchedulePerson()">+ 新增人員</button><button class="btn btn-def" onclick="addTeamMember()">👥 管理團隊</button></div>':''}
-    </div>
-    <div class="card" style="overflow:auto"><table class="sched-table">
-      <thead><tr><th class="sched-name-head" style="padding:8px 10px">人員</th>
-        ${Array.from({length:dim},(_,i)=>{const d=new Date(year,mon-1,i+1);const wd=d.getDay();return`<th style="color:${wd===0||wd===6?'var(--red)':'var(--textMut)'}">${i+1}<div style="font-size:7px">${'日一二三四五六'[wd]}</div></th>`}).join('')}
-        ${isAdmin?'<th style="min-width:28px"></th>':''}
-      </tr></thead>
-      <tbody>${people.map((p,pi)=>`<tr>
-        <td class="sched-name">${p.name}</td>
-        ${Array.from({length:dim},(_,di)=>{const val=p.days?.[di]||'R';return`<td>${isAdmin?`<select class="sched-select" style="background:${SCHED_COLOR[val]||'var(--border)'}" onchange="updateSchedCell(${pi},${di},this.value,this)">${Object.keys(SCHED_LABEL).map(k=>`<option value="${k}"${k===val?' selected':''}>${k}</option>`).join('')}</select>`:`<div class="sched-cell" style="background:${SCHED_COLOR[val]||'var(--border)'}">${val}</div>`}</td>`}).join('')}
-        ${isAdmin?`<td><button class="btn-ghost btn-sm" onclick="delSchedPerson(${pi})">🗑</button></td>`:''}</tr>`).join('')}</tbody>
-    </table></div>`;
-  // Store reference for updates
-  window._schedPeople = people;
-}
-
-async function updateSchedCell(pi,di,val,selectEl){
-  selectEl.style.background=SCHED_COLOR[val]||'var(--border)';
-  if(window._schedPeople && window._schedPeople[pi]){
-    window._schedPeople[pi].days[di]=val;
-    // Debounced cloud save
-    clearTimeout(window._schedSaveTimer);
-    window._schedSaveTimer = setTimeout(async()=>{
-      if(gasConnected){
-        const schedOut = window._schedPeople.map(p=>{
-          const obj={name:p.name};
-          p.days.forEach((v,i)=>obj['d'+(i+1)]=v);
-          return obj;
-        });
-        await gasWrite('schedule', schedOut);
-      }
-    },2000);
-  }
-}
-function addSchedulePerson(){const name=prompt('輸入姓名');if(!name)return;if(window._schedPeople)window._schedPeople.push({name,days:Array.from({length:31},()=>'R')});renderSchedule();toast('已新增')}
-function delSchedPerson(pi){if(window._schedPeople)window._schedPeople.splice(pi,1);renderSchedule();toast('已刪除')}
+function saveTool(){const n=document.getElementById('tlName').value,d=document.getElementById('tlDesc').value,u=document.getElementById('tlUrl').value,h=document.getElementById('tlFile').dataset?.content||'';if(!n)return;state.tools.push({id:Date.now().toString(),name:n,desc:d,icon:'🔧',color:'var(--cyan)',type:'custom',htmlUrl:u,htmlContent:h});saveState();closeModal('genModal');toast('已新增');renderTools()}
+function delTool(id){state.tools=state.tools.filter(t=>t.id!==id);saveState();renderTools();toast('已刪除')}
 
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', async function(){
-  loadLocal();
+document.addEventListener('DOMContentLoaded',function(){
+  loadState();
   document.getElementById('todayDate').textContent=new Date().toLocaleDateString('zh-TW');
-  buildNav();updateAdminUI();goPage('home');checkMobile();
-
-  // Load Sheet 1 (KPI data)
+  buildNav();updateAdminUI();goPage('home');
+  // Load live data from Google Sheet
   loadGoogleSheetData();
-
-  // Load Sheet 2 (system data) — try GAS first, fallback to GViz
-  await loadSheet2Data();
-  if(!gasConnected) await loadSheet2Fallback();
-  renderPage(currentPage);
 });
 </script>
 </body>
