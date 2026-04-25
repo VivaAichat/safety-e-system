@@ -475,7 +475,7 @@ function gvizToTpcRows(gvizTable) {
   const TPC_LABEL_MAP = {
     '開單日期':'issue_date','開立單位':'issuer','主辦組':'department',
     '巡檢類型':'inspection_type','管登編號':'ncr_no','承攬商':'contractor',
-    '開立總類':'issue_category','其他':'other_category','內容':'description',
+    '開立總類':'issue_category','其他':'location','地點':'location','內容':'description',
     '缺失種類':'defect_type','罰款金額':'penalty_amount',
     '是否結案':'is_closed','結案日期':'close_date',
   };
@@ -614,14 +614,15 @@ function processSheetData(socRows, tpcRows, mpData) {
     // 罰單標記（仍算缺失，另外記錄罰款金額）
     const isPenalty = issueCat.includes('罰單');
 
-    const defectType = row.defect_type || row.other_category || '';
+    const defectType = row.defect_type || '';
+    const tpcLocation = row.location || '';
     const desc = row.description || '';
     const dtStr = defectType.toLowerCase();
     const isClosed = row.is_closed === '是' || row.is_closed === true || String(row.is_closed).includes('是');
 
     g.allData.push({
       id:'TPC-'+idx, date:row.issue_date||'', type, defectCategory:dc,
-      subcontractor:matchedSub||contractor, category:defectType, location:'',
+      subcontractor:matchedSub||contractor, category:defectType, location:tpcLocation,
       description:desc, solved:isClosed, lsr:false,
       penaltyAmount, isPenalty, ncrNo:row.ncr_no||'', source:'TPC NCR',
       issueCat,
