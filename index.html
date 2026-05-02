@@ -1459,68 +1459,169 @@ function uploadScheduleExcel(event){
 }
 
 function parseRotationPlan(aoa, sheetName){
-  // Find the date row (contains Date objects in 2026-MM-DD format)
-  let dateRowIdx = -1, monthStr = '';
-  for(let i=0; i<Math.min(aoa.length,8); i++){
-    const dateCount = aoa[i].filter(c => c instanceof Date).length;
-    if(dateCount > 5) { dateRowIdx = i; break; }
-  }
-  if(dateRowIdx === -1){toast('找不到日期列，請確認檔案格式','error');return;}
+  console.log('Parsing Excel, total rows:', aoa.length);
 
-  const dateRow = aoa[dateRowIdx];
-  const dateColumns = []; // {col, date, dateStr}
+  // Find the date row: row 1 has '日期 Date' in some col, dates start from next col
+  let dateRowIdx = -1;
+  let dateStartCol = -1;
   let firstDate = null;
-  dateRow.forEach((cell, idx) => {
-    if(cell instanceof Date){
-      const dateStr = cell.toISOString().slice(0,10);
-      dateColumns.push({col: idx, date: cell, dateStr});
-      if(!firstDate) firstDate = cell;
-    }
-  });
-  if(dateColumns.length === 0){toast('找不到日期欄位','error');return;}
 
-  monthStr = firstDate.toISOString().slice(0,7); // YYYY-MM
+  // Strategy 1: look for '日期 Date' or '區域 Area' header
+  for(let i=0; i<Math.min(aoa.length,5); i++){
+    const row = aoa[i];
+    if(!row) continue;
+    for(let j=0; j<Math.min(row.length,5); j++){
+      const cell = String(row[j]||'').trim();
+      if(cell.includes('日期') || cell.includes('Date')){
+        dateRowIdx = i;
+        // dates should start in next column (or further right)
+        for(let k=j+1; k<row.length; k++){
+          if(row[k] instanceof Date){
+            dateStartCol = k;
+            firstDate = row[k];
+            break;
+          }
+        }
+        if(dateStartCol === -1){
+          // Try to parse strings as dates
+          for(let k=j+1; k<row.length; k++){
+            const v = row[k];
+            if(v && (typeof v === 'number' || (typeof v === 'string' && v.match(/2\d{3}/)))){
+              const d = v instanceof Date ? v : new Date(v);
+              if(!isNaN(d.getTime())){
+                dateStartCol = k;
+                firstDate = d;
+                break;
+              }
+            }
+          }
+        }
+        break;
+      }
+    }
+    if(dateRowIdx !== -1 && dateStartCol !== -1) break;
+  }
+
+  // Strategy 2: fallback - find any row with many dates
+  if(dateStartCol === -1){
+    for(let i=0; i<Math.min(aoa.length,8); i++){
+      const row = aoa[i];
+      if(!row) continue;
+      const dates = [];
+      row.forEach((c,idx)=>{ if(c instanceof Date) dates.push({idx,d:c}); });
+      if(dates.length > 10){
+        dateRowIdx = i;
+        dateStartCol = dates[0].idx;
+        firstDate = dates[0].d;
+        break;
+      }
+    }
+  }
+
+  if(dateStartCol === -1 || !firstDate){
+    toast('找不到日期欄位，請確認檔案格式','error');
+    console.error('Date detection failed. Row 0:', aoa[0]);
+    return;
+  }
+
+  // Build date columns array
+  const dateRow = aoa[dateRowIdx];
+  const dateColumns = [];
+  for(let c=dateStartCol; c<dateRow.length; c++){
+    const cell = dateRow[c];
+    if(cell instanceof Date){
+      dateColumns.push({col:c, date:cell, dateStr:cell.toISOString().slice(0,10)});
+    } else if(cell !== null && cell !== undefined && cell !== ''){
+      // Try to parse
+      const d = new Date(cell);
+      if(!isNaN(d.getTime()) && d.getFullYear() > 2020){
+        dateColumns.push({col:c, date:d, dateStr:d.toISOString().slice(0,10)});
+      }
+    }
+  }
+
+  if(dateColumns.length < 5){
+    toast(`只解析到 ${dateColumns.length} 個日期，格式可能有誤`,'error');
+    return;
+  }
+
+  console.log(`Date row: ${dateRowIdx}, start col: ${dateStartCol}, ${dateColumns.length} dates`);
+
+  const monthStr = firstDate.toISOString().slice(0,7);
+
+  // Find name column (usually col with name format "中文\nEnglish")
+  // Search rows after dateRow for the pattern
+  let nameCol = -1, areaCol = -1;
+  for(let r=dateRowIdx+1; r<Math.min(aoa.length, dateRowIdx+10); r++){
+    const row = aoa[r];
+    if(!row) continue;
+    for(let c=0; c<dateStartCol; c++){
+      const v = String(row[c]||'').trim();
+      // Name pattern: contains \n with English part, or just Chinese name
+      if(v.includes('\n') && /[A-Za-z]/.test(v)){
+        nameCol = c;
+        // Area is usually one column to the left
+        if(c > 0) areaCol = c - 1;
+        break;
+      }
+    }
+    if(nameCol !== -1) break;
+  }
+
+  // Fallback: assume name is in col 2 (index 2)
+  if(nameCol === -1){
+    nameCol = 2;
+    areaCol = 1;
+  }
+
+  console.log(`Name col: ${nameCol}, Area col: ${areaCol}`);
+
   const newPeople = [];
   let currentArea = '';
 
-  // Each person occupies 2 rows: name+days row, overtime row
+  // Iterate rows: each person occupies 2 rows (name+codes, then overtime)
   for(let r = dateRowIdx + 2; r < aoa.length; r++){
     const row = aoa[r];
     if(!row || row.length === 0) continue;
 
-    // Check if column 1 has area name (Chinese\nEnglish format)
-    const areaCell = String(row[1]||'').trim();
-    if(areaCell && areaCell !== currentArea && !areaCell.match(/^\d+$/)) {
-      // Could be area header or person name row
-      const nameCell = String(row[2]||'').trim();
-      if(areaCell.includes('\n') || areaCell.includes('Area') || areaCell.includes('Lead') || areaCell.includes('Manager') || areaCell.includes('台中') || areaCell.includes('通霄') || areaCell.includes('天力') || areaCell.includes('CCTV') || areaCell.includes('Env')){
+    // Update current area if present
+    if(areaCol >= 0){
+      const areaCell = String(row[areaCol]||'').trim();
+      if(areaCell && !areaCell.match(/^\d+$/) && areaCell.length > 1){
         currentArea = areaCell.replace(/\n/g,' ').trim();
       }
     }
 
-    // Try to find name in column 2 (姓名\nEnglish)
-    const nameCell = String(row[2]||'').trim();
-    if(!nameCell || nameCell === '' || nameCell.match(/^\d+$/)) continue;
+    // Get name from name column
+    const nameCell = String(row[nameCol]||'').trim();
+    if(!nameCell || nameCell === '' || nameCell.match(/^[\d.\s]+$/) || nameCell.startsWith('=')) continue;
 
-    // Extract English name (after \n or last part)
+    // Skip if name doesn't look like a name (e.g., overtime row or formula)
+    if(nameCell.includes('SUM') || nameCell.includes('46-') || nameCell === '加班累計') continue;
+
+    // Extract display name (English part if available)
     let displayName = nameCell;
     if(nameCell.includes('\n')){
-      const parts = nameCell.split('\n');
-      displayName = parts[parts.length-1].trim() || parts[0].trim();
+      const parts = nameCell.split('\n').map(p=>p.trim()).filter(Boolean);
+      // Prefer the English (Latin) name part
+      const eng = parts.find(p => /^[A-Za-z]+$/.test(p));
+      displayName = eng || parts[parts.length-1] || parts[0];
     }
     if(!displayName || displayName.length < 2) continue;
 
     // Extract day codes
     const days = [];
-    dateColumns.forEach(({col, date, dateStr}, dayIdx) => {
+    dateColumns.forEach(({col, date}, dayIdx) => {
       const cell = row[col];
       let code = '';
       if(cell !== null && cell !== undefined){
         code = String(cell).trim();
       }
+      // Skip formulas
+      if(code.startsWith('=')) code = '';
       // Normalize codes
       if(code === 'H') code = '休';
-      if(code === 'CCTV') code = 'CCT';
+      if(code === 'CCTV' || code === 'CCTV ') code = 'CCT';
       if(code === '環保') code = '環';
       // Default for empty
       if(!code){
@@ -1530,26 +1631,35 @@ function parseRotationPlan(aoa, sheetName){
       days[dayIdx] = code;
     });
 
-    // Overtime row is the next row
+    // Overtime row should be the next row
     const otRow = aoa[r+1] || [];
     const overtime = [];
     dateColumns.forEach(({col}, dayIdx) => {
       const v = otRow[col];
-      overtime[dayIdx] = (v !== null && v !== undefined && v !== '') ? parseFloat(v)||0 : 0;
+      let n = 0;
+      if(v !== null && v !== undefined && v !== ''){
+        const parsed = parseFloat(v);
+        if(!isNaN(parsed)) n = parsed;
+      }
+      overtime[dayIdx] = n;
     });
 
     newPeople.push({name: displayName, area: currentArea, days: days, overtime: overtime});
 
     // Auto-add to TEAM
     if(!getTeam().includes(displayName)){
-      if(!state.customTeam)state.customTeam=[...TEAM];
-      if(!state.customTeam.includes(displayName))state.customTeam.push(displayName);
+      if(!state.customTeam) state.customTeam = [...TEAM];
+      if(!state.customTeam.includes(displayName)) state.customTeam.push(displayName);
     }
 
     r++; // skip overtime row
   }
 
-  if(newPeople.length === 0){toast('未解析到任何人員','error');return;}
+  if(newPeople.length === 0){
+    toast('未解析到任何人員，請檢查 Console 訊息','error');
+    console.error('No people parsed. nameCol:', nameCol, 'areaCol:', areaCol, 'dateRowIdx:', dateRowIdx);
+    return;
+  }
 
   state.schedule.month = monthStr;
   state.schedule.people = newPeople;
