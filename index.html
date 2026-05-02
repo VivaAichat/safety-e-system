@@ -7,6 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg:#07090f;--surface:#0f1219;--card:#141922;--border:#1e2738;--borderHi:#2a3548;
@@ -222,8 +223,8 @@ const SEV_LABEL = {critical:"🔴 嚴重",major:"🟠 重大",minor:"🟡 輕微
 const SEV_COLOR = {critical:"var(--red)",major:"#f97316",minor:"var(--amber)"};
 const STATUS_COLOR = {open:"var(--red)","in-progress":"var(--blue)",closed:"var(--green)"};
 const STATUS_LABEL = {open:"待改善","in-progress":"改善中",closed:"已結案"};
-const SCHED_COLOR = {R:"#1d4ed8",H:"#dc2626","台":"#f59e0b","霄":"#10b981"};
-const SCHED_LABEL = {R:"上班",H:"休假","台":"台中","霄":"通霄"};
+const SCHED_COLOR = {R:"#1d4ed8",H:"#dc2626","休":"#dc2626","中":"#f59e0b","通":"#10b981","天":"#8b5cf6","霄":"#06b6d4","BB6":"#ec4899","BB7":"#a855f7","環":"#84cc16","CCT":"#f97316","臨":"#ef4444"};
+const SCHED_LABEL = {R:"上班",H:"休假","休":"休假","中":"台中","通":"通霄","天":"天力","霄":"離岸","BB6":"BB6","BB7":"BB7","環":"環保","CCT":"CCTV","臨":"臨時請假"};
 
 let isAdmin = false;
 let currentPage = "home";
@@ -245,6 +246,7 @@ let state = {
   ],
   tools: [{id:"tpc-def",name:"TPC 缺失單新增",desc:"新增TPC安全缺失改善單",icon:"⚠️",color:"var(--red)",type:"builtin"},{id:"sling-calc",name:"吊掛張力計算器",desc:"Sling Tension Calculator",icon:"🔧",color:"var(--purple)",type:"builtin"},{id:"gas-url",name:"GAS URL 設定",desc:"連接 Google Apps Script",icon:"🔗",color:"var(--textSec)",type:"builtin"}],
   schedule: {month:"2026-04",people:[]},
+  leave: [], // 臨時請假紀錄: [{id, date, name, reason}]
 };
 if(!state.schedule.people || state.schedule.people.length === 0) {
   state.schedule.people = TEAM.map(p => ({name:p, days:Array.from({length:30},(_,i)=>{const wd=new Date(2026,3,i+1).getDay();return wd===0||wd===6?"H":"R"})}));
@@ -480,11 +482,12 @@ async function loadGoogleSheetData() {
 
     sheetLoaded = true;
 
-    // Load Sheet 2 (tracking, announcements) via GAS
+    // Load Sheet 2 (tracking, announcements, leave) via GAS
     try {
-      const [trkData, annData] = await Promise.all([
+      const [trkData, annData, lvData] = await Promise.all([
         gasRead('tracking'),
-        gasRead('announcements')
+        gasRead('announcements'),
+        gasRead('leave')
       ]);
 
       if (trkData.length > 0) {
@@ -505,6 +508,15 @@ async function loadGoogleSheetData() {
           date: r.date || '',
           content: r.content || '',
           priority: r.priority || 'medium'
+        }));
+      }
+
+      if (lvData.length > 0) {
+        state.leave = lvData.map(r => ({
+          id: r.id || Date.now() + Math.random(),
+          date: r.date || '',
+          name: r.name || '',
+          reason: r.reason || ''
         }));
       }
 
@@ -1316,32 +1328,263 @@ function renderTracking(){
 }
 
 // ─── SCHEDULE ────────────────────────────────────────────────
+function getEffectiveCell(p, di, dateStr) {
+  // Apply temporary leave overlay
+  const leave = (state.leave||[]).find(l => l.name === p.name && l.date === dateStr);
+  if (leave) return '臨';
+  // Default: weekday=R, weekend=休 if cell is empty
+  let val = p.days?.[di] || '';
+  if (!val) {
+    const d = new Date(dateStr);
+    const wd = d.getDay();
+    val = (wd === 0 || wd === 6) ? '休' : 'R';
+  }
+  return val;
+}
+
 function renderSchedule(){
-  const sc=state.schedule;const year=parseInt(sc.month.split('-')[0]),mon=parseInt(sc.month.split('-')[1]);
-  const dim=new Date(year,mon,0).getDate();const pp=sc.people||[];
+  const sc=state.schedule;
+  const year=parseInt(sc.month.split('-')[0]),mon=parseInt(sc.month.split('-')[1]);
+  const dim=new Date(year,mon,0).getDate();
+  const pp=sc.people||[];
   const el=document.getElementById('page-schedule');
+
   el.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <input type="month" class="inp" value="${sc.month}" onchange="state.schedule.month=this.value;saveState();renderSchedule()" style="width:160px;padding:6px 10px">
-        <div style="display:flex;gap:6px">${Object.entries(SCHED_LABEL).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--textSec)"><span style="width:12px;height:12px;border-radius:3px;background:${SCHED_COLOR[k]};display:inline-block"></span>${v}</span>`).join('')}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${Object.entries(SCHED_LABEL).filter(([k])=>['R','休','中','通','天','霄','BB6','BB7','環','CCT','臨'].includes(k)).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--textSec)"><span style="width:12px;height:12px;border-radius:3px;background:${SCHED_COLOR[k]};display:inline-block"></span>${v}</span>`).join('')}
+        </div>
       </div>
-      ${isAdmin?'<div style="display:flex;gap:6px"><button class="btn btn-pri" onclick="addSchedulePerson()">+ 新增人員</button><button class="btn btn-def" onclick="addTeamMember()">👥 管理團隊</button></div>':''}
+      ${isAdmin?`<div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input type="file" id="schedFile" accept=".xlsx,.xls" style="display:none" onchange="uploadScheduleExcel(event)">
+        <button class="btn btn-pri" onclick="document.getElementById('schedFile').click()">📤 上傳Excel</button>
+        <button class="btn btn-def" onclick="addLeave()">🚨 臨時請假</button>
+        <button class="btn btn-def" onclick="addSchedulePerson()">+ 新增人員</button>
+        <button class="btn btn-def" onclick="addTeamMember()">👥 管理團隊</button>
+      </div>`:''}
     </div>
+
+    ${(state.leave||[]).filter(l=>l.date && l.date.startsWith(sc.month)).length > 0 ? `
+    <div class="card" style="margin-bottom:14px;padding:10px 14px;border-left:3px solid var(--red)">
+      <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">🚨 本月臨時請假紀錄</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${state.leave.filter(l=>l.date && l.date.startsWith(sc.month)).map(l=>`
+          <div style="background:var(--redBg);padding:5px 10px;border-radius:6px;font-size:11px;display:flex;align-items:center;gap:6px">
+            <span style="color:var(--red);font-weight:600">${l.date}</span>
+            <span style="font-weight:600">${l.name}</span>
+            <span style="color:var(--textMut)">${l.reason||''}</span>
+            ${isAdmin?`<button class="btn-ghost btn-sm" onclick="delLeave(${l.id})" style="padding:0 4px">✕</button>`:''}
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+
     <div class="card" style="overflow:auto"><table class="sched-table">
-      <thead><tr><th class="sched-name-head" style="padding:8px 10px">人員</th>
-        ${Array.from({length:dim},(_,i)=>{const d=new Date(year,mon-1,i+1);const wd=d.getDay();return`<th style="color:${wd===0||wd===6?'var(--red)':'var(--textMut)'}">${i+1}<div style="font-size:7px">${'日一二三四五六'[wd]}</div></th>`}).join('')}
+      <thead><tr>
+        <th class="sched-name-head" style="padding:8px 10px">區域 / 人員</th>
+        ${Array.from({length:dim},(_,i)=>{
+          const d=new Date(year,mon-1,i+1);const wd=d.getDay();
+          return `<th style="color:${wd===0||wd===6?'var(--red)':'var(--textMut)'}">${i+1}<div style="font-size:7px">${'日一二三四五六'[wd]}</div></th>`;
+        }).join('')}
+        <th style="text-align:center;color:var(--amber);min-width:50px">加班</th>
         ${isAdmin?'<th style="min-width:28px"></th>':''}
       </tr></thead>
-      <tbody>${pp.map((p,pi)=>`<tr>
-        <td class="sched-name">${p.name}</td>
-        ${Array.from({length:dim},(_,di)=>{const val=p.days?.[di]||'R';return`<td>${isAdmin?`<select class="sched-select" style="background:${SCHED_COLOR[val]||'var(--border)'}" onchange="updateSchedCell(${pi},${di},this.value);this.style.background=SCHED_COLOR[this.value]">${Object.keys(SCHED_LABEL).map(k=>`<option value="${k}"${k===val?' selected':''}>${k}</option>`).join('')}</select>`:`<div class="sched-cell" style="background:${SCHED_COLOR[val]||'var(--border)'}">${val}</div>`}</td>`}).join('')}
-        ${isAdmin?`<td><button class="btn-ghost btn-sm" onclick="delSchedPerson(${pi})">🗑</button></td>`:''}</tr>`).join('')}</tbody>
+      <tbody>${pp.map((p,pi)=>{
+        const dateStrs = Array.from({length:dim},(_,i)=>{const d=new Date(year,mon-1,i+1);return d.toISOString().slice(0,10);});
+        const otSum = (p.overtime||[]).reduce((s,v)=>s+(parseFloat(v)||0),0);
+        return `<tr>
+          <td class="sched-name">
+            <div style="font-size:9px;color:var(--textMut);font-weight:500">${p.area||''}</div>
+            ${p.name}
+          </td>
+          ${Array.from({length:dim},(_,di)=>{
+            const dateStr = dateStrs[di];
+            const val = getEffectiveCell(p, di, dateStr);
+            const isLeave = val === '臨';
+            return `<td>${isAdmin && !isLeave ? `
+              <select class="sched-select" style="background:${SCHED_COLOR[val]||'var(--border)'}" onchange="updateSchedCell(${pi},${di},this.value);this.style.background=SCHED_COLOR[this.value]||'var(--border)'">
+                ${Object.keys(SCHED_LABEL).filter(k=>k!=='臨').map(k=>`<option value="${k}"${k===val?' selected':''}>${k}</option>`).join('')}
+              </select>` : `<div class="sched-cell" style="background:${SCHED_COLOR[val]||'var(--border)'}" title="${SCHED_LABEL[val]||val}">${val}</div>`}</td>`;
+          }).join('')}
+          <td style="text-align:center;font-family:var(--mono);font-weight:700;color:var(--amber)">${otSum}</td>
+          ${isAdmin?`<td><button class="btn-ghost btn-sm" onclick="delSchedPerson(${pi})">🗑</button></td>`:''}
+        </tr>`;
+      }).join('')}</tbody>
     </table></div>`;
 }
-function updateSchedCell(pi,di,val){state.schedule.people[pi].days[di]=val;saveState()}
-function addSchedulePerson(){const name=prompt('輸入姓名');if(!name)return;state.schedule.people.push({name,days:Array.from({length:31},()=>'R')});saveState();renderSchedule();toast('已新增')}
-function delSchedPerson(pi){state.schedule.people.splice(pi,1);saveState();renderSchedule();toast('已刪除')}
+
+function updateSchedCell(pi,di,val){
+  if(!state.schedule.people[pi].days)state.schedule.people[pi].days=[];
+  state.schedule.people[pi].days[di]=val;
+  saveState();
+}
+
+function addSchedulePerson(){
+  const name=prompt('輸入姓名');if(!name)return;
+  state.schedule.people.push({name,area:'',days:[],overtime:[]});
+  // Auto-add to TEAM if not exists
+  if(!getTeam().includes(name)){
+    if(!state.customTeam)state.customTeam=[...TEAM];
+    state.customTeam.push(name);
+    TEAM=state.customTeam;
+  }
+  saveState();renderSchedule();toast('已新增 '+name);
+}
+
+function delSchedPerson(pi){
+  if(!confirm('確定刪除此人員的班表？'))return;
+  state.schedule.people.splice(pi,1);saveState();renderSchedule();toast('已刪除');
+}
+
+// ── Upload Excel and parse rotation plan ──
+function uploadScheduleExcel(event){
+  const file = event.target.files[0];
+  if(!file)return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array',cellDates:true});
+      const sheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      parseRotationPlan(aoa, sheetName);
+      event.target.value = ''; // reset
+    } catch(err){
+      console.error('Excel parse error:',err);
+      toast('Excel 解析失敗：'+err.message,'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseRotationPlan(aoa, sheetName){
+  // Find the date row (contains Date objects in 2026-MM-DD format)
+  let dateRowIdx = -1, monthStr = '';
+  for(let i=0; i<Math.min(aoa.length,8); i++){
+    const dateCount = aoa[i].filter(c => c instanceof Date).length;
+    if(dateCount > 5) { dateRowIdx = i; break; }
+  }
+  if(dateRowIdx === -1){toast('找不到日期列，請確認檔案格式','error');return;}
+
+  const dateRow = aoa[dateRowIdx];
+  const dateColumns = []; // {col, date, dateStr}
+  let firstDate = null;
+  dateRow.forEach((cell, idx) => {
+    if(cell instanceof Date){
+      const dateStr = cell.toISOString().slice(0,10);
+      dateColumns.push({col: idx, date: cell, dateStr});
+      if(!firstDate) firstDate = cell;
+    }
+  });
+  if(dateColumns.length === 0){toast('找不到日期欄位','error');return;}
+
+  monthStr = firstDate.toISOString().slice(0,7); // YYYY-MM
+  const newPeople = [];
+  let currentArea = '';
+
+  // Each person occupies 2 rows: name+days row, overtime row
+  for(let r = dateRowIdx + 2; r < aoa.length; r++){
+    const row = aoa[r];
+    if(!row || row.length === 0) continue;
+
+    // Check if column 1 has area name (Chinese\nEnglish format)
+    const areaCell = String(row[1]||'').trim();
+    if(areaCell && areaCell !== currentArea && !areaCell.match(/^\d+$/)) {
+      // Could be area header or person name row
+      const nameCell = String(row[2]||'').trim();
+      if(areaCell.includes('\n') || areaCell.includes('Area') || areaCell.includes('Lead') || areaCell.includes('Manager') || areaCell.includes('台中') || areaCell.includes('通霄') || areaCell.includes('天力') || areaCell.includes('CCTV') || areaCell.includes('Env')){
+        currentArea = areaCell.replace(/\n/g,' ').trim();
+      }
+    }
+
+    // Try to find name in column 2 (姓名\nEnglish)
+    const nameCell = String(row[2]||'').trim();
+    if(!nameCell || nameCell === '' || nameCell.match(/^\d+$/)) continue;
+
+    // Extract English name (after \n or last part)
+    let displayName = nameCell;
+    if(nameCell.includes('\n')){
+      const parts = nameCell.split('\n');
+      displayName = parts[parts.length-1].trim() || parts[0].trim();
+    }
+    if(!displayName || displayName.length < 2) continue;
+
+    // Extract day codes
+    const days = [];
+    dateColumns.forEach(({col, date, dateStr}, dayIdx) => {
+      const cell = row[col];
+      let code = '';
+      if(cell !== null && cell !== undefined){
+        code = String(cell).trim();
+      }
+      // Normalize codes
+      if(code === 'H') code = '休';
+      if(code === 'CCTV') code = 'CCT';
+      if(code === '環保') code = '環';
+      // Default for empty
+      if(!code){
+        const wd = date.getDay();
+        code = (wd === 0 || wd === 6) ? '休' : 'R';
+      }
+      days[dayIdx] = code;
+    });
+
+    // Overtime row is the next row
+    const otRow = aoa[r+1] || [];
+    const overtime = [];
+    dateColumns.forEach(({col}, dayIdx) => {
+      const v = otRow[col];
+      overtime[dayIdx] = (v !== null && v !== undefined && v !== '') ? parseFloat(v)||0 : 0;
+    });
+
+    newPeople.push({name: displayName, area: currentArea, days: days, overtime: overtime});
+
+    // Auto-add to TEAM
+    if(!getTeam().includes(displayName)){
+      if(!state.customTeam)state.customTeam=[...TEAM];
+      if(!state.customTeam.includes(displayName))state.customTeam.push(displayName);
+    }
+
+    r++; // skip overtime row
+  }
+
+  if(newPeople.length === 0){toast('未解析到任何人員','error');return;}
+
+  state.schedule.month = monthStr;
+  state.schedule.people = newPeople;
+  if(state.customTeam) TEAM = state.customTeam;
+  saveState();
+  renderSchedule();
+  toast(`已匯入 ${newPeople.length} 位人員的 ${monthStr} 班表 ✓`);
+}
+
+// ── Temporary leave management ──
+function addLeave(){
+  showGenModal('🚨 新增臨時請假',`
+    <div class="field"><label>日期</label><input class="inp" type="date" id="lvDate" value="${today()}"></div>
+    <div class="field"><label>請假人員</label><select class="sel" id="lvName">${optionsHtml(getTeam(),true)}</select></div>
+    <div class="field"><label>請假原因</label><input class="inp" id="lvReason" placeholder="例: 家中有事 / 病假 / 事假"></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveLeave()">記錄</button>`);
+}
+
+function saveLeave(){
+  const date=document.getElementById('lvDate').value;
+  const name=document.getElementById('lvName').value;
+  const reason=document.getElementById('lvReason').value;
+  if(!date||!name)return toast('請填寫日期與人員','error');
+  if(!state.leave)state.leave=[];
+  state.leave.unshift({id:Date.now(), date, name, reason});
+  saveState();closeModal('genModal');toast('已記錄請假');renderSchedule();
+  // Sync to Sheet 2
+  gasWrite('leave', state.leave);
+}
+
+function delLeave(id){
+  state.leave = (state.leave||[]).filter(l=>l.id!==id);
+  saveState();renderSchedule();toast('已刪除');
+  gasWrite('leave', state.leave);
+}
 
 // ═══════════════════════════════════════════════════════════════
 // CRUD ACTIONS
