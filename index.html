@@ -849,26 +849,10 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
     hours: c.total * 8
   })).sort((a,b) => b.hours - a.hours);
 
-  // Condition/Action open/closed counts — use ALL data (no date filter)
-  // to match the Deficiency page which shows all open items regardless of date range
-  const allCondDef = g.allData.filter(d =>
-    (d.type === '缺點' || d.type === '罰單') &&
-    d.defectCategory === 'Condition' &&
-    (source === 'All' || d.source === source) &&
-    (subFilter === 'All' || d.subcontractor === subFilter) &&
-    (locFilter === 'All' || d.location === locFilter)
-  );
-  const allActDef = g.allData.filter(d =>
-    (d.type === '缺點' || d.type === '罰單') &&
-    d.defectCategory === 'Action' &&
-    (source === 'All' || d.source === source) &&
-    (subFilter === 'All' || d.subcontractor === subFilter) &&
-    (locFilter === 'All' || d.location === locFilter)
-  );
-  const openCond   = allCondDef.filter(d => !d.solved).length;
-  const openAct    = allActDef.filter(d  => !d.solved).length;
-  const closedCond = allCondDef.filter(d => d.solved).length;
-  const closedAct  = allActDef.filter(d  => d.solved).length;
+  const openCond   = condDef.filter(d => !d.solved).length;
+  const openAct    = actDef.filter(d  => !d.solved).length;
+  const closedCond = condDef.filter(d => d.solved).length;
+  const closedAct  = actDef.filter(d  => d.solved).length;
 
   return {
     summary: {
