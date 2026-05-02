@@ -210,6 +210,8 @@ a{color:var(--amber);text-decoration:none}
 // STATE & CONFIG
 // ═══════════════════════════════════════════════════════════════
 const SHEET_ID = "19KlNuUTQO4_qzP6mYEAxh97La-RjjcvpyMC5c8K7Pj8";
+const SHEET2_ID = "1AnSjD28WmpLRoDcUPWuyl5tPfU5Qt4cFiP0oaoLBFCg";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbw-8arEgdKrSUo10TCt0wVhvZX1JCSGd97BpwYD1fsXm6WvE0VXTO3nxbhu-fKgh3X9/exec";
 let TEAM = ["Sam","Daniel","Yong","Jin","Ben","Elson","Jeffrey","Vic","Noah","Jet","Sue"];
 const CONTRACTORS = ["海義 HiE","美綺 Magitech","高虎 GAC","兆濰/茂富","天力 Tianli"];
 const LOCATIONS = ["台中 Taichung","通霄 Tongxiao","天力 Tianli","離岸 Offshore"];
@@ -431,16 +433,40 @@ function gvizToTrackingRows(gvizTable) {
   }).filter(r => r.item); // skip empty rows
 }
 
+// ── GAS API helpers (read/write to Sheet 2) ──
+async function gasRead(tab) {
+  try {
+    const resp = await fetch(GAS_URL + '?action=read&tab=' + encodeURIComponent(tab));
+    const json = await resp.json();
+    return json.data || [];
+  } catch(e) { console.error('GAS read error:', e); return []; }
+}
+
+async function gasWrite(tab, data) {
+  try {
+    const resp = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'text/plain'},
+      body: JSON.stringify({ action:'write', tab: tab, data: data })
+    });
+    const json = await resp.json();
+    if (!json.success) console.error('GAS write error:', json.error);
+    return json.success;
+  } catch(e) { console.error('GAS write error:', e); return false; }
+}
+
+let gasConnected = false;
+
 async function loadGoogleSheetData() {
   const statusEl = document.getElementById('sheetStatus');
   statusEl.innerHTML = '<span style="color:var(--amber);animation:pulse 1s infinite">● 連線中...</span>';
 
   try {
-    const [socGviz, tpcGviz, mpGviz, trkGviz] = await Promise.all([
+    // Load Sheet 1 (SOC, TPC NCR, manpower) via GViz JSONP
+    const [socGviz, tpcGviz, mpGviz] = await Promise.all([
       loadSheetJsonp('SOC'),
       loadSheetJsonp('TPC NCR'),
       loadSheetJsonp('manpower'),
-      loadSheetJsonp('tracking').catch(()=>null)
     ]);
 
     if (socGviz.status === 'error' || tpcGviz.status === 'error' || mpGviz.status === 'error') {
@@ -450,23 +476,47 @@ async function loadGoogleSheetData() {
     const socRows = gvizToFormRows(socGviz.table);
     const tpcRows = gvizToTpcRows(tpcGviz.table);
     const mpData  = gvizToManpowerData(mpGviz.table);
-
     processSheetData(socRows, tpcRows, mpData);
 
-    // ── Parse tracking tab ──
-    if (trkGviz && trkGviz.table) {
-      const trkRows = gvizToTrackingRows(trkGviz.table);
-      if (trkRows.length > 0) {
-        state.trk = trkRows;
-        saveState();
+    sheetLoaded = true;
+
+    // Load Sheet 2 (tracking, announcements) via GAS
+    try {
+      const [trkData, annData] = await Promise.all([
+        gasRead('tracking'),
+        gasRead('announcements')
+      ]);
+
+      if (trkData.length > 0) {
+        state.trk = trkData.map(r => ({
+          id: r.id || Date.now() + Math.random(),
+          item: r.item || '',
+          assignees: typeof r.assignees === 'string' ? r.assignees.split(/[,，、;]\s*/).filter(Boolean) : [],
+          deadline: r.deadline || '',
+          priority: r.priority || 'medium',
+          status: r.status || 'pending',
+          note: r.note || ''
+        }));
       }
+
+      if (annData.length > 0) {
+        state.ann = annData.map(r => ({
+          id: r.id || Date.now() + Math.random(),
+          date: r.date || '',
+          content: r.content || '',
+          priority: r.priority || 'medium'
+        }));
+      }
+
+      saveState();
+      gasConnected = true;
+    } catch(gasErr) {
+      console.warn('GAS load failed, using local data:', gasErr);
     }
 
-    sheetLoaded = true;
-    statusEl.innerHTML = `<span style="color:var(--green)">● 雲端已連線</span> <span style="font-size:10px;color:var(--textMut)">(SOC:${socRows.length} TPC:${tpcRows.length} MP:${mpData.length})</span>`;
+    statusEl.innerHTML = `<span style="color:var(--green)">● 雲端已連線</span> <span style="font-size:10px;color:var(--textMut)">(SOC:${socRows.length} TPC:${tpcRows.length} MP:${mpData.length})</span>${gasConnected ? ' <span style="color:var(--green);font-size:10px">● GAS 已連線</span>' : ''}`;
     toast('Google Sheet 資料載入完成 ✓');
 
-    // Re-render current page
     renderPage(currentPage);
   } catch(err) {
     console.error('Sheet load error:', err);
@@ -1310,8 +1360,10 @@ function addAnnouncement(){
 function saveAnn(){
   const c=document.getElementById('annContent').innerHTML,p=document.getElementById('annPri').value;
   if(!c.trim())return;state.ann.unshift({id:Date.now(),date:today(),content:c,priority:p});saveState();closeModal('genModal');toast('公告已發布');renderPage(currentPage);
+  // Sync to Sheet 2
+  gasWrite('announcements', state.ann);
 }
-function delAnn(id){state.ann=state.ann.filter(a=>a.id!==id);saveState();renderPage(currentPage);toast('已刪除')}
+function delAnn(id){state.ann=state.ann.filter(a=>a.id!==id);saveState();renderPage(currentPage);toast('已刪除');gasWrite('announcements', state.ann);}
 
 function addTracking(){
   showGenModal('📋 新增追蹤事項',`
@@ -1327,9 +1379,11 @@ function saveTrk(){
   const assignees=[...document.querySelectorAll('#trkAssignees button[data-sel="1"]')].map(b=>b.dataset.name);
   state.trk.unshift({id:Date.now(),item,assignees,deadline:document.getElementById('trkDeadline').value,priority:document.getElementById('trkPri').value,status:'pending',note:document.getElementById('trkNote').innerHTML});
   saveState();closeModal('genModal');toast('已新增');renderPage(currentPage);
+  // Sync to Sheet 2 (assignees stored as comma-separated string)
+  gasWrite('tracking', state.trk.map(t=>({...t, assignees: (t.assignees||[]).join(',')})));
 }
-function cycleTrack(id){const c={pending:'in-progress','in-progress':'done',done:'pending'};const t=state.trk.find(x=>x.id===id);if(t)t.status=c[t.status];saveState();renderTracking();toast('已更新')}
-function delTrack(id){state.trk=state.trk.filter(t=>t.id!==id);saveState();renderTracking();toast('已刪除')}
+function cycleTrack(id){const c={pending:'in-progress','in-progress':'done',done:'pending'};const t=state.trk.find(x=>x.id===id);if(t)t.status=c[t.status];saveState();renderTracking();toast('已更新');gasWrite('tracking', state.trk.map(t=>({...t, assignees: (t.assignees||[]).join(',')})));}
+function delTrack(id){state.trk=state.trk.filter(t=>t.id!==id);saveState();renderTracking();toast('已刪除');gasWrite('tracking', state.trk.map(t=>({...t, assignees: (t.assignees||[]).join(',')})));}
 
 function addDeficiency(){
   showGenModal('⚠️ 新增TPC缺失單',`<div id="defFormArea"></div>`,600);
