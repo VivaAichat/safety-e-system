@@ -1360,6 +1360,7 @@ function renderSchedule(){
       ${isAdmin?`<div style="display:flex;gap:6px;flex-wrap:wrap">
         <input type="file" id="schedFile" accept=".xlsx,.xls" style="display:none" onchange="uploadScheduleExcel(event)">
         <button class="btn btn-pri" onclick="document.getElementById('schedFile').click()">📤 上傳Excel</button>
+        <button class="btn btn-success" onclick="loadMay2026Schedule()">📅 載入5月範本</button>
         <button class="btn btn-def" onclick="addLeave()">🚨 臨時請假</button>
         <button class="btn btn-def" onclick="addSchedulePerson()">+ 新增人員</button>
         <button class="btn btn-def" onclick="addTeamMember()">👥 管理團隊</button>
@@ -1456,6 +1457,43 @@ function uploadScheduleExcel(event){
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ── Hardcoded May 2026 schedule (parsed from PDF) ──
+const MAY2026_SCHEDULE = [
+  {name:"Sam",area:"Project HSE Manager",days:["","","","R","R","R","R","R","","","休","R","R","R","R","","","R","R","R","R","R","","","R","R","R","R","R","",""]},
+  {name:"Daniel",area:"Onshore Safety Lead",days:["休","休","休","中","中","通","中","通","休","中","通","中","通","中","中","休","休","通","中","中","中","通","天","休","通","中","休","休","休","休","休"]},
+  {name:"Yong",area:"Offshore Safety Lead",days:["","BB6","","R","R","R","R","R","","","R","R","R","R","R","","BB7","R","R","R","R","R","","","R","R","R","R","R","",""]},
+  {name:"Jeffrey",area:"Taichung",days:["休","休","休","中","中","中","中","中","中","休","中","中","中","中","中","休","BB7","中","中","中","中","中","休","休","中","中","中","中","中","中","休"]},
+  {name:"Jet",area:"Taichung",days:["休","休","BB6","中","中","中","中","中","休","休","中","中","中","中","中","休","中","中","中","中","中","中","休","中","中","中","中","中","中","休","中"]},
+  {name:"Vic",area:"Taichung",days:["休","休","中","中","休","中","中","中","","休","中","中","中","中","中","中","休","中","中","中","中","中","中","休","中","中","中","中","休","休","休"]},
+  {name:"Noah",area:"Taichung",days:["中","休","BB6","BB6","中","中","中","中","休","天","中","中","中","中","BB7","BB7","休","BB7","中","中","中","中","休","休","中","中","中","中","中","休","休"]},
+  {name:"Sue",area:"TienLi",days:["休","BB6","休","BB6","天","天","天","天","天","休","天","天","天","天","BB7","BB7","休","BB7","天","天","天","天","休","天","天","天","天","天","天","休","休"]},
+  {name:"Jin",area:"Tunghsiao",days:["休","通","休","通","通","通","通","通","通","休","通","通","通","通","通","休","通","通","通","通","通","通","休","通","通","通","通","通","通","休","休"]},
+  {name:"Elson",area:"Tunghsiao",days:["通","中","休","通","通","通","通","通","休","休","通","通","通","通","通","通","休","通","通","通","通","通","休","休","通","通","通","通","通","通","休"]},
+  {name:"Ben",area:"Tunghsiao",days:["休","休","通","通","通","通","通","通","休","通","通","通","通","通","通","休","休","通","通","通","通","通","通","休","通","通","通","通","通","休","通"]},
+  {name:"Paul",area:"Env",days:["霄","中","休","R","R","R","R","R","霄","休","R","R","R","R","R","休","R","R","R","R","R","R","休","休","R","R","R","R","R","中","休"]},
+  {name:"Raymond",area:"Env",days:["休","休","R","R","R","R","R","R","休","R","R","R","R","R","R","休","休","R","R","R","R","R","霄","休","R","R","R","R","R","霄","休"]},
+  {name:"Sean",area:"Env",days:["中","休","休","R","R","R","R","R","中","休","R","R","R","R","R","中","休","R","R","R","R","R","休","R","R","R","R","R","R","休","R"]},
+  {name:"Jacqueline",area:"Env",days:["休","霄","休","R","R","R","R","R","","","","","","","","","休","休","R","R","R","R","R","霄","休","休","休","","","",""]},
+  {name:"YuJu",area:"CCTV",days:["休","R","休","R","休","R","休","R","休","R","","","","","","","","","","","","","","","","","","","","",""]},
+  {name:"Kai",area:"CCTV",days:["休","R","休","R","休","R","休","R","休","R","休","","","","","","","","","","","","","","","","","","","",""]}
+];
+
+function loadMay2026Schedule(){
+  const newPeople = MAY2026_SCHEDULE.map(p => ({...p, overtime: new Array(31).fill(0)}));
+  state.schedule.month = '2026-05';
+  state.schedule.people = newPeople;
+  // Auto-add new names to TEAM
+  const namesNotInTeam = newPeople.map(p=>p.name).filter(n=>!getTeam().includes(n));
+  if(namesNotInTeam.length > 0){
+    if(!state.customTeam) state.customTeam = [...TEAM];
+    namesNotInTeam.forEach(n => { if(!state.customTeam.includes(n)) state.customTeam.push(n); });
+    TEAM = state.customTeam;
+  }
+  saveState();
+  renderSchedule();
+  toast(`已載入 ${newPeople.length} 位人員的 2026/5 班表 ✓`);
 }
 
 function parseRotationPlan(aoa, sheetName){
