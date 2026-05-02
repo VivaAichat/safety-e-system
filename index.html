@@ -553,6 +553,7 @@ function gvizToTpcRows(gvizTable) {
     '內容': 'description',
     '缺失種類': 'defect_type',
     '罰款金額': 'penalty_amount',
+    '改善期限': 'due_date',
     '是否結案': 'is_closed',
     '結案日期': 'close_date',
   };
@@ -572,7 +573,7 @@ function gvizToTpcRows(gvizTable) {
       let val = cell.v;
       if (val === null || val === undefined) return;
       const key = colKeys[i];
-      if (key === 'issue_date' || key === 'close_date') val = parseGvizDate(val);
+      if (key === 'issue_date' || key === 'close_date' || key === 'due_date') val = parseGvizDate(val);
       obj[key] = val;
     });
     return obj;
@@ -676,6 +677,7 @@ function processSheetData(socRows, tpcRows, mpData) {
       lsr: false,
       penaltyAmount: penaltyAmount,
       ncrNo: row.ncr_no || '',
+      dueDate: row.due_date || '',
       source: 'TPC NCR',
       isPTWViolation: dtStr.includes('工作許可') || dtStr.includes('ptw') || dtStr.includes('permit')
     });
@@ -1191,14 +1193,16 @@ function renderDeficiency(){
     return;
   }
   const g = gsheetData;
+  const todayStr = new Date().toISOString().slice(0,10);
   const socOpen = g.allData.filter(d => d.source === 'SOC' && d.type !== '優點' && !d.solved);
   const tpcOpen = g.allData.filter(d => d.source === 'TPC NCR' && d.type !== '優點' && !d.solved);
+  const tpcOverdue = tpcOpen.filter(d => d.dueDate && d.dueDate < todayStr).length;
 
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div style="display:flex;gap:6px">
         <button class="pill-btn" style="background:${defTab==='soc'?'var(--amberBg)':'var(--card)'};color:${defTab==='soc'?'var(--amber)':'var(--textSec)'}" onclick="defTab='soc';renderDeficiency()">SOC 未結案 (${socOpen.length})</button>
-        <button class="pill-btn" style="background:${defTab==='tpc'?'var(--blueBg)':'var(--card)'};color:${defTab==='tpc'?'var(--blue)':'var(--textSec)'}" onclick="defTab='tpc';renderDeficiency()">TPC NCR 未結案 (${tpcOpen.length})</button>
+        <button class="pill-btn" style="background:${defTab==='tpc'?'var(--blueBg)':'var(--card)'};color:${defTab==='tpc'?'var(--blue)':'var(--textSec)'}" onclick="defTab='tpc';renderDeficiency()">TPC NCR 未結案 (${tpcOpen.length})${tpcOverdue>0?` <span style="color:var(--red);margin-left:4px">⚠️ ${tpcOverdue} 逾期</span>`:''}</button>
       </div>
     </div>
     ${defTab === 'soc' ? renderSOCTable(socOpen) : renderTPCTable(tpcOpen)}`;
@@ -1221,18 +1225,24 @@ function renderSOCTable(items) {
 }
 
 function renderTPCTable(items) {
+  const todayStr = new Date().toISOString().slice(0,10);
   return `<div class="card"><div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>管登編號</th><th>日期</th><th>承攬商</th><th>開立總類</th><th>缺失種類</th><th>內容</th><th>罰款</th></tr></thead>
-    <tbody>${items.length > 0 ? items.map(d => `
-      <tr>
+    <thead><tr><th>管登編號</th><th>日期</th><th>承攬商</th><th>開立總類</th><th>缺失種類</th><th>內容</th><th>改善期限</th><th>罰款</th></tr></thead>
+    <tbody>${items.length > 0 ? items.map(d => {
+      const overdue = d.dueDate && d.dueDate < todayStr;
+      const noDue = !d.dueDate;
+      return `
+      <tr style="${overdue?'background:rgba(239,68,68,.05)':''}">
         <td style="font-family:var(--mono);font-weight:600;color:var(--blue)">${d.ncrNo||'-'}</td>
         <td style="white-space:nowrap">${d.date||'-'}</td>
         <td style="font-weight:600">${d.subcontractor||'-'}</td>
         <td>${badge(d.defectCategory==='Condition'?'條件':d.defectCategory==='Action'?'行為':d.type,d.defectCategory==='Condition'?'var(--amber)':d.type==='罰單'?'var(--red)':'var(--red)')}</td>
         <td>${d.category||'-'}</td>
         <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.description||'').replace(/"/g,'&quot;')}">${d.description||'-'}</td>
+        <td style="white-space:nowrap;font-family:var(--mono);color:${overdue?'var(--red)':noDue?'var(--textMut)':'var(--text)'};font-weight:${overdue?'700':'400'}">${d.dueDate||'-'}${overdue?' ⚠️ 逾期':''}</td>
         <td style="font-family:var(--mono);color:${d.penaltyAmount?'var(--red)':'var(--textMut)'}">${d.penaltyAmount ? 'NT$'+d.penaltyAmount.toLocaleString() : '-'}</td>
-      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:36px;color:var(--textMut)">全部已結案 🎉</td></tr>'}</tbody>
+      </tr>`;
+    }).join('') : '<tr><td colspan="8" style="text-align:center;padding:36px;color:var(--textMut)">全部已結案 🎉</td></tr>'}</tbody>
   </table></div></div>`;
 }
 
