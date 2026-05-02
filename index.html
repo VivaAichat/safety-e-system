@@ -648,10 +648,12 @@ function processSheetData(socRows, tpcRows, mpData) {
     let penaltyAmount = 0;
     if (row.penalty_amount) penaltyAmount = parseFloat(String(row.penalty_amount).replace(/[^\d.]/g,'')) || 0;
 
-    // issue_category: 不安全條件, 不安全行為, 優點, 罰單
+    // 開立總類 (issue_category): 不安全條件, 不安全行為, 優點
+    // 巡檢類型 (inspection_type): 罰單 (now moved here)
     const issueCat = row.issue_category || '';
+    const inspType = row.inspection_type || '';
     let type = '缺點', dc = 'Condition';
-    if (issueCat.includes('罰單')) type = '罰單';
+    if (inspType.includes('罰單') || issueCat.includes('罰單')) type = '罰單'; // backward compatible
     else if (issueCat.includes('優點') || issueCat.includes('Good practice')) { type = '優點'; dc = 'Positive'; }
     if (issueCat.includes('不安全行為') || issueCat.includes('Unsafe action')) dc = 'Action';
     if (issueCat.includes('不安全條件') || issueCat.includes('Unsafe condition')) dc = 'Condition';
