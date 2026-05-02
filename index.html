@@ -1360,7 +1360,6 @@ function renderSchedule(){
       ${isAdmin?`<div style="display:flex;gap:6px;flex-wrap:wrap">
         <input type="file" id="schedFile" accept=".xlsx,.xls" style="display:none" onchange="uploadScheduleExcel(event)">
         <button class="btn btn-pri" onclick="document.getElementById('schedFile').click()">📤 上傳Excel</button>
-        <button class="btn btn-success" onclick="loadMay2026Schedule()">📅 載入5月範本</button>
         <button class="btn btn-def" onclick="addLeave()">🚨 臨時請假</button>
         <button class="btn btn-def" onclick="addSchedulePerson()">+ 新增人員</button>
         <button class="btn btn-def" onclick="addTeamMember()">👥 管理團隊</button>
@@ -1459,43 +1458,6 @@ function uploadScheduleExcel(event){
   reader.readAsArrayBuffer(file);
 }
 
-// ── Hardcoded May 2026 schedule (parsed from PDF) ──
-const MAY2026_SCHEDULE = [
-  {name:"Sam",area:"Project HSE Manager",days:["","","","R","R","R","R","R","","","休","R","R","R","R","","","R","R","R","R","R","","","R","R","R","R","R","",""]},
-  {name:"Daniel",area:"Onshore Safety Lead",days:["休","休","休","中","中","通","中","通","休","中","通","中","通","中","中","休","休","通","中","中","中","通","天","休","通","中","休","休","休","休","休"]},
-  {name:"Yong",area:"Offshore Safety Lead",days:["","BB6","","R","R","R","R","R","","","R","R","R","R","R","","BB7","R","R","R","R","R","","","R","R","R","R","R","",""]},
-  {name:"Jeffrey",area:"Taichung",days:["休","休","休","中","中","中","中","中","中","休","中","中","中","中","中","休","BB7","中","中","中","中","中","休","休","中","中","中","中","中","中","休"]},
-  {name:"Jet",area:"Taichung",days:["休","休","BB6","中","中","中","中","中","休","休","中","中","中","中","中","休","中","中","中","中","中","中","休","中","中","中","中","中","中","休","中"]},
-  {name:"Vic",area:"Taichung",days:["休","休","中","中","休","中","中","中","","休","中","中","中","中","中","中","休","中","中","中","中","中","中","休","中","中","中","中","休","休","休"]},
-  {name:"Noah",area:"Taichung",days:["中","休","BB6","BB6","中","中","中","中","休","天","中","中","中","中","BB7","BB7","休","BB7","中","中","中","中","休","休","中","中","中","中","中","休","休"]},
-  {name:"Sue",area:"TienLi",days:["休","BB6","休","BB6","天","天","天","天","天","休","天","天","天","天","BB7","BB7","休","BB7","天","天","天","天","休","天","天","天","天","天","天","休","休"]},
-  {name:"Jin",area:"Tunghsiao",days:["休","通","休","通","通","通","通","通","通","休","通","通","通","通","通","休","通","通","通","通","通","通","休","通","通","通","通","通","通","休","休"]},
-  {name:"Elson",area:"Tunghsiao",days:["通","中","休","通","通","通","通","通","休","休","通","通","通","通","通","通","休","通","通","通","通","通","休","休","通","通","通","通","通","通","休"]},
-  {name:"Ben",area:"Tunghsiao",days:["休","休","通","通","通","通","通","通","休","通","通","通","通","通","通","休","休","通","通","通","通","通","通","休","通","通","通","通","通","休","通"]},
-  {name:"Paul",area:"Env",days:["霄","中","休","R","R","R","R","R","霄","休","R","R","R","R","R","休","R","R","R","R","R","R","休","休","R","R","R","R","R","中","休"]},
-  {name:"Raymond",area:"Env",days:["休","休","R","R","R","R","R","R","休","R","R","R","R","R","R","休","休","R","R","R","R","R","霄","休","R","R","R","R","R","霄","休"]},
-  {name:"Sean",area:"Env",days:["中","休","休","R","R","R","R","R","中","休","R","R","R","R","R","中","休","R","R","R","R","R","休","R","R","R","R","R","R","休","R"]},
-  {name:"Jacqueline",area:"Env",days:["休","霄","休","R","R","R","R","R","","","","","","","","","休","休","R","R","R","R","R","霄","休","休","休","","","",""]},
-  {name:"YuJu",area:"CCTV",days:["休","R","休","R","休","R","休","R","休","R","","","","","","","","","","","","","","","","","","","","",""]},
-  {name:"Kai",area:"CCTV",days:["休","R","休","R","休","R","休","R","休","R","休","","","","","","","","","","","","","","","","","","","",""]}
-];
-
-function loadMay2026Schedule(){
-  const newPeople = MAY2026_SCHEDULE.map(p => ({...p, overtime: new Array(31).fill(0)}));
-  state.schedule.month = '2026-05';
-  state.schedule.people = newPeople;
-  // Auto-add new names to TEAM
-  const namesNotInTeam = newPeople.map(p=>p.name).filter(n=>!getTeam().includes(n));
-  if(namesNotInTeam.length > 0){
-    if(!state.customTeam) state.customTeam = [...TEAM];
-    namesNotInTeam.forEach(n => { if(!state.customTeam.includes(n)) state.customTeam.push(n); });
-    TEAM = state.customTeam;
-  }
-  saveState();
-  renderSchedule();
-  toast(`已載入 ${newPeople.length} 位人員的 2026/5 班表 ✓`);
-}
-
 function parseRotationPlan(aoa, sheetName){
   console.log('=== Parsing Excel ===');
   console.log('Total rows:', aoa.length);
@@ -1503,6 +1465,14 @@ function parseRotationPlan(aoa, sheetName){
   console.log('Row 1:', aoa[1]);
   console.log('Row 2:', aoa[2]);
   console.log('Row 3:', aoa[3]);
+
+  // Helper: format Date as YYYY-MM-DD using LOCAL time (not UTC)
+  function fmtDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  }
 
   // Find the date row: the row that contains at least one Date object or parseable date
   let dateRowIdx = -1;
@@ -1564,23 +1534,33 @@ function parseRotationPlan(aoa, sheetName){
     return;
   }
 
-  console.log(`Found: dateRow=${dateRowIdx}, dateStartCol=${dateStartCol}, firstDate=${firstDate.toISOString()}`);
+  console.log(`Found: dateRow=${dateRowIdx}, dateStartCol=${dateStartCol}, firstDate=${firstDate} (local: ${fmtDate(firstDate)})`);
 
-  // Build date columns array - extrapolate if Excel formulas weren't evaluated
+  // ── Normalize firstDate: SheetJS may return time slightly before midnight due to UTC conversion ──
+  // If the time is near end of day (UTC), treat as the next local day
+  if(firstDate.getUTCHours() >= 12){
+    // Likely a date that got shifted; round up
+    firstDate = new Date(firstDate.getTime() + 12*3600*1000);
+  }
+  // Snap to local midnight to prevent accumulation errors
+  firstDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
+  console.log(`Normalized firstDate: ${fmtDate(firstDate)}`);
+
+  // Build date columns array - extrapolate sequentially
   const dateRow = aoa[dateRowIdx];
   const dateColumns = [];
-  const monthStr = firstDate.toISOString().slice(0,7);
+  const monthStr = firstDate.getFullYear() + '-' + String(firstDate.getMonth()+1).padStart(2,'0');
   const year = firstDate.getFullYear();
   const month = firstDate.getMonth();
+  const startDay = firstDate.getDate();
   const daysInMonth = new Date(year, month+1, 0).getDate();
 
-  // Generate sequential dates starting from firstDate
+  // Generate sequential dates starting from firstDate within the same month
   for(let i=0; i<daysInMonth; i++){
-    const d = new Date(year, month, firstDate.getDate() + i);
-    if(d.getMonth() !== month) break; // stop if rolled over to next month
+    const d = new Date(year, month, startDay + i);
+    if(d.getMonth() !== month) break;
     const col = dateStartCol + i;
-    if(col >= dateRow.length + 5) break; // safety limit
-    dateColumns.push({col, date:d, dateStr:d.toISOString().slice(0,10)});
+    dateColumns.push({col, date:d, dateStr: fmtDate(d)});
   }
 
   console.log(`Generated ${dateColumns.length} date columns from ${dateColumns[0].dateStr} to ${dateColumns[dateColumns.length-1].dateStr}`);
