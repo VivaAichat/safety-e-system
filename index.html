@@ -489,6 +489,25 @@ async function loadGoogleSheetData() {
 
     sheetLoaded = true;
 
+    // Diagnostic for condition open count discrepancy
+    const tpcAll = gsheetData.allData.filter(d=>d.source==='TPC NCR');
+    const tpcNotSolved = tpcAll.filter(d=>!d.solved && d.type !== '優點');
+    const tpcCondNotSolved = tpcNotSolved.filter(d=>d.defectCategory==='Condition');
+    const tpcActNotSolved = tpcNotSolved.filter(d=>d.defectCategory==='Action');
+    const tpcOtherNotSolved = tpcNotSolved.filter(d=>d.defectCategory!=='Condition' && d.defectCategory!=='Action');
+    console.log('=== TPC NCR DEBUG ===');
+    console.log('Total TPC:', tpcAll.length);
+    console.log('TPC not solved (excl. 優點):', tpcNotSolved.length);
+    console.log('  - Condition:', tpcCondNotSolved.length);
+    console.log('  - Action:', tpcActNotSolved.length);
+    console.log('  - Other category:', tpcOtherNotSolved.length, tpcOtherNotSolved.map(d=>({ncr:d.ncrNo,type:d.type,dc:d.defectCategory,cat:d.category})));
+    console.log('TPC not solved (incl. all):', tpcAll.filter(d=>!d.solved).length);
+    console.log('TPC by type:', {
+      缺點: tpcAll.filter(d=>d.type==='缺點').length,
+      優點: tpcAll.filter(d=>d.type==='優點').length,
+      罰單: tpcAll.filter(d=>d.type==='罰單').length
+    });
+
     // Load Sheet 2 (tracking, announcements, leave) via GAS
     try {
       const [trkData, annData, lvData] = await Promise.all([
@@ -849,10 +868,26 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
     hours: c.total * 8
   })).sort((a,b) => b.hours - a.hours);
 
-  const openCond   = condDef.filter(d => !d.solved).length;
-  const openAct    = actDef.filter(d  => !d.solved).length;
-  const closedCond = condDef.filter(d => d.solved).length;
-  const closedAct  = actDef.filter(d  => d.solved).length;
+  // Condition/Action open/closed counts — use ALL data (no date filter)
+  // to match the Deficiency page which shows all open items regardless of date range
+  const allCondDef = g.allData.filter(d =>
+    (d.type === '缺點' || d.type === '罰單') &&
+    d.defectCategory === 'Condition' &&
+    (source === 'All' || d.source === source) &&
+    (subFilter === 'All' || d.subcontractor === subFilter) &&
+    (locFilter === 'All' || d.location === locFilter)
+  );
+  const allActDef = g.allData.filter(d =>
+    (d.type === '缺點' || d.type === '罰單') &&
+    d.defectCategory === 'Action' &&
+    (source === 'All' || d.source === source) &&
+    (subFilter === 'All' || d.subcontractor === subFilter) &&
+    (locFilter === 'All' || d.location === locFilter)
+  );
+  const openCond   = allCondDef.filter(d => !d.solved).length;
+  const openAct    = allActDef.filter(d  => !d.solved).length;
+  const closedCond = allCondDef.filter(d => d.solved).length;
+  const closedAct  = allActDef.filter(d  => d.solved).length;
 
   return {
     summary: {
