@@ -1328,16 +1328,29 @@ function renderTracking(){
 }
 
 // ─── SCHEDULE ────────────────────────────────────────────────
+// Taiwan public holidays (extend as needed)
+const TW_HOLIDAYS = {
+  '2026-01-01':'元旦','2026-02-16':'除夕','2026-02-17':'春節','2026-02-18':'春節','2026-02-19':'春節','2026-02-20':'春節',
+  '2026-02-27':'228連假','2026-02-28':'和平紀念日','2026-04-03':'兒童節連假','2026-04-04':'兒童節','2026-04-06':'清明節',
+  '2026-05-01':'勞動節','2026-06-19':'端午節','2026-09-25':'中秋節','2026-10-09':'國慶連假','2026-10-10':'國慶日',
+  '2025-01-01':'元旦','2025-01-27':'春節','2025-01-28':'除夕','2025-01-29':'春節','2025-01-30':'春節','2025-01-31':'春節',
+  '2025-02-28':'和平紀念日','2025-04-03':'兒童節連假','2025-04-04':'兒童節','2025-04-05':'清明節','2025-05-01':'勞動節',
+  '2025-05-30':'端午節連假','2025-05-31':'端午節','2025-10-06':'中秋節','2025-10-10':'國慶日','2025-10-24':'光復節',
+};
+
+function isHoliday(dateStr){return !!TW_HOLIDAYS[dateStr];}
+
 function getEffectiveCell(p, di, dateStr) {
   // Apply temporary leave overlay
   const leave = (state.leave||[]).find(l => l.name === p.name && l.date === dateStr);
   if (leave) return '臨';
-  // Default: weekday=R, weekend=休 if cell is empty
+  // Default: weekday=R, weekend/holiday=休 if cell is empty
   let val = p.days?.[di] || '';
   if (!val) {
-    const d = new Date(dateStr);
-    const wd = d.getDay();
-    val = (wd === 0 || wd === 6) ? '休' : 'R';
+    // Parse YYYY-MM-DD manually to avoid timezone issues
+    const [yr, mo, da] = dateStr.split('-').map(Number);
+    const wd = new Date(yr, mo-1, da).getDay();
+    val = (wd === 0 || wd === 6 || isHoliday(dateStr)) ? '休' : 'R';
   }
   return val;
 }
@@ -1349,12 +1362,16 @@ function renderSchedule(){
   const pp=sc.people||[];
   const el=document.getElementById('page-schedule');
 
+  // Helper: build local YYYY-MM-DD from y/m/d (avoid UTC)
+  const fmt = (y,m,d) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <input type="month" class="inp" value="${sc.month}" onchange="state.schedule.month=this.value;saveState();renderSchedule()" style="width:160px;padding:6px 10px">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${Object.entries(SCHED_LABEL).filter(([k])=>['R','休','中','通','天','霄','BB6','BB7','環','CCT','臨'].includes(k)).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--textSec)"><span style="width:12px;height:12px;border-radius:3px;background:${SCHED_COLOR[k]};display:inline-block"></span>${v}</span>`).join('')}
+          <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--red)">🇹🇼 國定假日</span>
         </div>
       </div>
       ${isAdmin?`<div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -1384,14 +1401,17 @@ function renderSchedule(){
       <thead><tr>
         <th class="sched-name-head" style="padding:8px 10px">區域 / 人員</th>
         ${Array.from({length:dim},(_,i)=>{
-          const d=new Date(year,mon-1,i+1);const wd=d.getDay();
-          return `<th style="color:${wd===0||wd===6?'var(--red)':'var(--textMut)'}">${i+1}<div style="font-size:7px">${'日一二三四五六'[wd]}</div></th>`;
+          const dateStr = fmt(year, mon, i+1);
+          const wd=new Date(year,mon-1,i+1).getDay();
+          const holiday = isHoliday(dateStr);
+          const isOff = wd===0 || wd===6 || holiday;
+          return `<th style="color:${isOff?'var(--red)':'var(--textMut)'}" title="${holiday ? TW_HOLIDAYS[dateStr] : ''}">${i+1}${holiday?'<span style="font-size:6px">🇹🇼</span>':''}<div style="font-size:7px">${'日一二三四五六'[wd]}</div></th>`;
         }).join('')}
         <th style="text-align:center;color:var(--amber);min-width:50px">加班</th>
         ${isAdmin?'<th style="min-width:28px"></th>':''}
       </tr></thead>
       <tbody>${pp.map((p,pi)=>{
-        const dateStrs = Array.from({length:dim},(_,i)=>{const d=new Date(year,mon-1,i+1);return d.toISOString().slice(0,10);});
+        const dateStrs = Array.from({length:dim},(_,i)=>fmt(year, mon, i+1));
         const otSum = (p.overtime||[]).reduce((s,v)=>s+(parseFloat(v)||0),0);
         return `<tr>
           <td class="sched-name">
@@ -1405,7 +1425,7 @@ function renderSchedule(){
             return `<td>${isAdmin && !isLeave ? `
               <select class="sched-select" style="background:${SCHED_COLOR[val]||'var(--border)'}" onchange="updateSchedCell(${pi},${di},this.value);this.style.background=SCHED_COLOR[this.value]||'var(--border)'">
                 ${Object.keys(SCHED_LABEL).filter(k=>k!=='臨').map(k=>`<option value="${k}"${k===val?' selected':''}>${k}</option>`).join('')}
-              </select>` : `<div class="sched-cell" style="background:${SCHED_COLOR[val]||'var(--border)'}" title="${SCHED_LABEL[val]||val}">${val}</div>`}</td>`;
+              </select>` : `<div class="sched-cell" style="background:${SCHED_COLOR[val]||'var(--border)'}" title="${SCHED_LABEL[val]||val}${isHoliday(dateStr)?' · '+TW_HOLIDAYS[dateStr]:''}">${val}</div>`}</td>`;
           }).join('')}
           <td style="text-align:center;font-family:var(--mono);font-weight:700;color:var(--amber)">${otSum}</td>
           ${isAdmin?`<td><button class="btn-ghost btn-sm" onclick="delSchedPerson(${pi})">🗑</button></td>`:''}
