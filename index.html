@@ -294,15 +294,22 @@ function loadSheetJsonp(sheetName) {
 // ── Parse GViz date value (handles "Date(y,m,d)" and Excel serial) ──
 function parseGvizDate(val) {
   if (val === null || val === undefined) return '';
+  // Helper: format local Date as YYYY-MM-DD
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
   if (typeof val === 'string' && val.startsWith('Date(')) {
     const parts = val.replace('Date(','').replace(')','').split(',').map(Number);
+    // Build date directly from Y/M/D components (no time, no UTC)
     const d = new Date(parts[0], parts[1], parts[2]||1);
-    return d.toISOString().slice(0,10);
+    return fmt(d);
   }
   if (typeof val === 'number') {
     // Excel serial date → JS date (epoch 1899-12-30)
-    const d = new Date((val - 25569) * 86400000);
-    return d.toISOString().slice(0,10);
+    // Excel days are local, so we extract Y/M/D from UTC and rebuild as local
+    const utcMs = (val - 25569) * 86400000;
+    const utc = new Date(utcMs);
+    const d = new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
+    return fmt(d);
   }
   return String(val);
 }
