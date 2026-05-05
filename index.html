@@ -497,12 +497,28 @@ async function loadGoogleSheetData() {
         gasRead('leave')
       ]);
 
+      // Helper: normalize date from GAS (may be "YYYY-MM-DD", ISO string, or Date string)
+      function normalizeDate(v) {
+        if (!v) return '';
+        const s = String(v);
+        // Already in YYYY-MM-DD format
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        // ISO format like "2026-05-06T07:00:00.000Z" - extract local YYYY-MM-DD
+        if (s.includes('T')) {
+          const d = new Date(s);
+          if (!isNaN(d.getTime())) {
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          }
+        }
+        return s;
+      }
+
       if (trkData.length > 0) {
         state.trk = trkData.map(r => ({
           id: r.id || Date.now() + Math.random(),
           item: r.item || '',
           assignees: typeof r.assignees === 'string' ? r.assignees.split(/[,，、;]\s*/).filter(Boolean) : [],
-          deadline: r.deadline || '',
+          deadline: normalizeDate(r.deadline),
           priority: r.priority || 'medium',
           status: r.status || 'pending',
           note: r.note || ''
@@ -512,7 +528,7 @@ async function loadGoogleSheetData() {
       if (annData.length > 0) {
         state.ann = annData.map(r => ({
           id: r.id || Date.now() + Math.random(),
-          date: r.date || '',
+          date: normalizeDate(r.date),
           content: r.content || '',
           priority: r.priority || 'medium'
         }));
@@ -521,7 +537,7 @@ async function loadGoogleSheetData() {
       if (lvData.length > 0) {
         state.leave = lvData.map(r => ({
           id: r.id || Date.now() + Math.random(),
-          date: r.date || '',
+          date: normalizeDate(r.date),
           name: r.name || '',
           reason: r.reason || ''
         }));
@@ -849,10 +865,26 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
     hours: c.total * 8
   })).sort((a,b) => b.hours - a.hours);
 
-  const openCond   = condDef.filter(d => !d.solved).length;
-  const openAct    = actDef.filter(d  => !d.solved).length;
-  const closedCond = condDef.filter(d => d.solved).length;
-  const closedAct  = actDef.filter(d  => d.solved).length;
+  // Condition/Action open/closed counts — use ALL data (no date filter)
+  // to match the Deficiency page which shows all open items regardless of date range
+  const allCondDef = g.allData.filter(d =>
+    (d.type === '缺點' || d.type === '罰單') &&
+    d.defectCategory === 'Condition' &&
+    (source === 'All' || d.source === source) &&
+    (subFilter === 'All' || d.subcontractor === subFilter) &&
+    (locFilter === 'All' || d.location === locFilter)
+  );
+  const allActDef = g.allData.filter(d =>
+    (d.type === '缺點' || d.type === '罰單') &&
+    d.defectCategory === 'Action' &&
+    (source === 'All' || d.source === source) &&
+    (subFilter === 'All' || d.subcontractor === subFilter) &&
+    (locFilter === 'All' || d.location === locFilter)
+  );
+  const openCond   = allCondDef.filter(d => !d.solved).length;
+  const openAct    = allActDef.filter(d  => !d.solved).length;
+  const closedCond = allCondDef.filter(d => d.solved).length;
+  const closedAct  = allActDef.filter(d  => d.solved).length;
 
   return {
     summary: {
