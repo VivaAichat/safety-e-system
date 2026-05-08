@@ -471,11 +471,12 @@ async function loadGoogleSheetData() {
   statusEl.innerHTML = '<span style="color:var(--amber);animation:pulse 1s infinite">● 連線中...</span>';
 
   try {
-    // Load Sheet 1 (SOC, TPC NCR, manpower) via GViz JSONP
-    const [socGviz, tpcGviz, mpGviz] = await Promise.all([
+    // Load Sheet 1 (SOC, TPC NCR, manpower, Gov) via GViz JSONP
+    const [socGviz, tpcGviz, mpGviz, govGviz] = await Promise.all([
       loadSheetJsonp('SOC'),
       loadSheetJsonp('TPC NCR'),
       loadSheetJsonp('manpower'),
+      loadSheetJsonp('Gov').catch(()=>null),
     ]);
 
     if (socGviz.status === 'error' || tpcGviz.status === 'error' || mpGviz.status === 'error') {
@@ -485,7 +486,8 @@ async function loadGoogleSheetData() {
     const socRows = gvizToFormRows(socGviz.table);
     const tpcRows = gvizToTpcRows(tpcGviz.table);
     const mpData  = gvizToManpowerData(mpGviz.table);
-    processSheetData(socRows, tpcRows, mpData);
+    const govRows = (govGviz && govGviz.table) ? gvizToGovRows(govGviz.table) : [];
+    processSheetData(socRows, tpcRows, mpData, govRows);
 
     sheetLoaded = true;
 
@@ -549,7 +551,7 @@ async function loadGoogleSheetData() {
       console.warn('GAS load failed, using local data:', gasErr);
     }
 
-    statusEl.innerHTML = `<span style="color:var(--green)">● 雲端已連線</span> <span style="font-size:10px;color:var(--textMut)">(SOC:${socRows.length} TPC:${tpcRows.length} MP:${mpData.length})</span>${gasConnected ? ' <span style="color:var(--green);font-size:10px">● GAS 已連線</span>' : ''}`;
+    statusEl.innerHTML = `<span style="color:var(--green)">● 雲端已連線</span> <span style="font-size:10px;color:var(--textMut)">(SOC:${socRows.length} TPC:${tpcRows.length} Gov:${govRows.length} MP:${mpData.length})</span>${gasConnected ? ' <span style="color:var(--green);font-size:10px">● GAS 已連線</span>' : ''}`;
     toast('Google Sheet 資料載入完成 ✓');
 
     renderPage(currentPage);
@@ -558,6 +560,45 @@ async function loadGoogleSheetData() {
     sheetLoadError = true;
     statusEl.innerHTML = '<span style="color:var(--red)">● 連線失敗</span> <span style="font-size:10px;color:var(--textMut)">(使用本地資料)</span>';
   }
+}
+
+// ── Convert Gov table (政府機關開立的缺失) ──
+// Columns: 開單日期, 開立單位, 發文字號, 發規條款, 承攬商, 開立總類, 地點, 內容, 缺失種類, 罰款金額, 改善期限, 是否結案, 結案日期
+function gvizToGovRows(gvizTable) {
+  const GOV_LABEL_MAP = {
+    '開單日期': 'issue_date',
+    '開立單位': 'issuer',
+    '發文字號': 'doc_no',
+    '發規條款': 'regulation',
+    '承攬商': 'contractor',
+    '開立總類': 'issue_category',
+    '地點': 'area',
+    '內容': 'description',
+    '缺失種類': 'defect_type',
+    '罰款金額': 'penalty_amount',
+    '改善期限': 'due_date',
+    '是否結案': 'is_closed',
+    '結案日期': 'close_date',
+  };
+  const colKeys = gvizTable.cols.map(c => {
+    const lbl = (c.label || '').trim();
+    for (const [kw, key] of Object.entries(GOV_LABEL_MAP)) {
+      if (lbl.includes(kw)) return key;
+    }
+    return c.id;
+  });
+  return gvizTable.rows.map(row => {
+    const obj = {};
+    row.c.forEach((cell, i) => {
+      if (!cell) return;
+      let val = cell.v;
+      if (val === null || val === undefined) return;
+      const key = colKeys[i];
+      if (key === 'issue_date' || key === 'close_date' || key === 'due_date') val = parseGvizDate(val);
+      obj[key] = val;
+    });
+    return obj;
+  });
 }
 
 // ── Convert TPC NCR table (different column structure) ──
@@ -603,7 +644,8 @@ function gvizToTpcRows(gvizTable) {
   });
 }
 
-function processSheetData(socRows, tpcRows, mpData) {
+function processSheetData(socRows, tpcRows, mpData, govRows) {
+  govRows = govRows || [];
   const g = gsheetData;
   g.allData = [];
   g.manpowerData = [];
@@ -706,6 +748,60 @@ function processSheetData(socRows, tpcRows, mpData) {
     });
   });
 
+  // ── Process Gov rows (政府機關開立的缺失) ──
+  govRows.forEach((row, idx) => {
+    let contractor = row.contractor || '';
+    let matchedSub = contractor;
+    g.socSubcontractors.forEach(s => {
+      if ((contractor.includes('兆濰') && s.includes('兆濰')) ||
+          (contractor.includes('茂富') && s.includes('茂富')) ||
+          (contractor.includes('NMDC') && s.includes('NMDC')) ||
+          (contractor.includes('安達希') && s.includes('NMDC')) ||
+          (contractor.includes('環海') && s.includes('環海')) ||
+          (contractor.includes('EGS') && s.includes('EGS')) ||
+          (contractor.includes('海義') && s.includes('海義')) ||
+          (contractor.includes('HiE') && s.includes('HiE')) ||
+          (contractor.includes('高虎') && s.includes('高虎')) ||
+          (contractor.includes('GAC') && s.includes('GAC')) ||
+          (contractor.includes('美綺') && s.includes('美綺')) ||
+          (contractor.includes('天力') && s.includes('天力'))) matchedSub = s;
+    });
+
+    let penaltyAmount = 0;
+    if (row.penalty_amount) penaltyAmount = parseFloat(String(row.penalty_amount).replace(/[^\d.]/g,'')) || 0;
+
+    const issueCat = row.issue_category || '';
+    let type = '缺點', dc = 'Condition';
+    if (issueCat.includes('罰單')) type = '罰單';
+    else if (issueCat.includes('優點')) { type = '優點'; dc = 'Positive'; }
+    if (issueCat.includes('不安全行為')) dc = 'Action';
+    if (issueCat.includes('不安全條件')) dc = 'Condition';
+
+    const defectType = row.defect_type || '';
+    const desc = row.description || '';
+    const isClosed = row.is_closed === '是' || row.is_closed === true || String(row.is_closed).includes('是');
+
+    g.allData.push({
+      id: 'GOV-'+idx,
+      date: row.issue_date || '',
+      type: type,
+      defectCategory: dc,
+      subcontractor: matchedSub || contractor,
+      category: defectType,
+      location: row.area || '',
+      description: desc,
+      solved: isClosed,
+      lsr: false,
+      penaltyAmount: penaltyAmount,
+      docNo: row.doc_no || '',
+      regulation: row.regulation || '',
+      issuer: row.issuer || '',
+      dueDate: row.due_date || '',
+      source: 'Gov',
+      isPTWViolation: false
+    });
+  });
+
   // ── Process Manpower (pre-parsed array of {company, dailyData}) ──
   mpData.forEach(item => {
     const cname = item.company;
@@ -764,11 +860,15 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   const closed    = defects.filter(d => d.solved);
   const socDef    = filtered.filter(d => d.source === 'SOC' && (d.type === '缺點' || d.type === '罰單'));
   const tpcDef    = filtered.filter(d => d.source === 'TPC NCR' && (d.type === '缺點' || d.type === '罰單'));
+  const govDef    = filtered.filter(d => d.source === 'Gov' && (d.type === '缺點' || d.type === '罰單'));
   const tpcPen    = filtered.filter(d => d.source === 'TPC NCR' && d.type === '罰單');
+  const govPen    = filtered.filter(d => d.source === 'Gov' && (d.type === '罰單' || d.penaltyAmount > 0));
   const lsrViol   = defects.filter(d => d.lsr);
 
   let totalPenalty = 0;
   tpcPen.forEach(i => totalPenalty += parseFloat(i.penaltyAmount) || 0);
+  let govPenalty = 0;
+  govPen.forEach(i => govPenalty += parseFloat(i.penaltyAmount) || 0);
 
   const closureRate = defects.length > 0 ? (closed.length / defects.length) * 100 : 0;
 
@@ -888,12 +988,13 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
 
   return {
     summary: {
-      totalSOC: socDef.length, totalNCR: tpcDef.length,
+      totalSOC: socDef.length, totalNCR: tpcDef.length, totalGov: govDef.length,
       totalDefects: defects.length, positives: positives.length,
       closureRate: closureRate, manpower: totalPeople,
       safeHours: totalHours,
       trir, ltir, far, nearMissRate: nmRate, severityRate: severity,
       penaltyAmount: totalPenalty,
+      govPenalty: govPenalty,
       conditionOpen: openCond, conditionClosed: closedCond,
       actionOpen: openAct, actionClosed: closedAct,
       lsrViolations: lsrViol.length,
@@ -932,7 +1033,7 @@ function calcMonthlyManpowerByLocation(startDate, endDate) {
 
 function getFallbackKPI() {
   return {
-    summary:{totalSOC:0,totalNCR:0,totalDefects:0,positives:0,closureRate:0,manpower:0,safeHours:0,trir:0,ltir:0,far:0,nearMissRate:0,severityRate:0,penaltyAmount:0,conditionOpen:0,conditionClosed:0,actionOpen:0,actionClosed:0,lsrViolations:0,rec:0,lti:0,lost:0,nm:0,fat:0,totalPeople:0,totalHours:0},
+    summary:{totalSOC:0,totalNCR:0,totalGov:0,totalDefects:0,positives:0,closureRate:0,manpower:0,safeHours:0,trir:0,ltir:0,far:0,nearMissRate:0,severityRate:0,penaltyAmount:0,govPenalty:0,conditionOpen:0,conditionClosed:0,actionOpen:0,actionClosed:0,lsrViolations:0,rec:0,lti:0,lost:0,nm:0,fat:0,totalPeople:0,totalHours:0},
     ncrClosure:0,ptwCompliance:0,tbmRate:0,
     socByCategory:[],monthly:[],contractorRank:[],manpower:[],monthlyManpower:[]
   };
@@ -1036,13 +1137,14 @@ function renderHome(){
   // Open defects from live Sheet data
   const liveOpenSOC = sheetLoaded ? gsheetData.allData.filter(d => d.source === 'SOC' && d.type !== '優點' && !d.solved).length : 0;
   const liveOpenTPC = sheetLoaded ? gsheetData.allData.filter(d => d.source === 'TPC NCR' && d.type !== '優點' && !d.solved).length : 0;
-  const openDefs = liveOpenSOC + liveOpenTPC;
+  const liveOpenGov = sheetLoaded ? gsheetData.allData.filter(d => d.source === 'Gov' && d.type !== '優點' && !d.solved).length : 0;
+  const openDefs = liveOpenSOC + liveOpenTPC + liveOpenGov;
   const pendingTrk=state.trk.filter(t=>t.status!=='done').length;
   const el=document.getElementById('page-home');
   el.innerHTML=`
     ${!sheetLoaded && !sheetLoadError ? '<div class="loading-bar"><div class="fill"></div></div><p style="font-size:11px;color:var(--textMut);margin-bottom:14px;text-align:center">正在從 Google Sheet 載入資料...</p>' : ''}
     <div class="grid grid-4" style="margin-bottom:22px">
-      ${statCard('⚠️','待處理缺失',openDefs,`SOC:${liveOpenSOC} TPC:${liveOpenTPC}`,'var(--red)')}
+      ${statCard('⚠️','待處理缺失',openDefs,`SOC:${liveOpenSOC} TPC:${liveOpenTPC} Gov:${liveOpenGov}`,'var(--red)')}
       ${statCard('📋','追蹤事項',pendingTrk,'','var(--amber)')}
       ${statCard('👥','累計人次',s.totalPeople ? s.totalPeople.toLocaleString() : '—','','var(--blue)')}
       ${statCard('✅','安全工時',s.totalHours ? s.totalHours.toLocaleString() : '—','','var(--green)')}
@@ -1140,7 +1242,7 @@ function renderDashboard(){
       <span style="font-size:12px;font-weight:700;color:var(--amber)">📊 篩選條件</span>
       <div style="display:flex;align-items:center;gap:8px"><label>起始</label><input type="date" class="inp" id="dashStart" value="${startVal}" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"></div>
       <div style="display:flex;align-items:center;gap:8px"><label>結束</label><input type="date" class="inp" id="dashEnd" value="${endVal}" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"></div>
-      <div style="display:flex;align-items:center;gap:8px"><label>來源</label><select class="sel" id="dashSource" style="width:130px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"><option value="All"${srcVal==='All'?' selected':''}>全部</option><option value="SOC"${srcVal==='SOC'?' selected':''}>SOC</option><option value="TPC NCR"${srcVal==='TPC NCR'?' selected':''}>TPC NCR</option></select></div>
+      <div style="display:flex;align-items:center;gap:8px"><label>來源</label><select class="sel" id="dashSource" style="width:130px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"><option value="All"${srcVal==='All'?' selected':''}>全部</option><option value="SOC"${srcVal==='SOC'?' selected':''}>SOC</option><option value="TPC NCR"${srcVal==='TPC NCR'?' selected':''}>TPC NCR</option><option value="Gov"${srcVal==='Gov'?' selected':''}>政府機關</option></select></div>
       <div style="display:flex;align-items:center;gap:8px"><label>承攬商</label><select class="sel" id="dashSub" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()">${subOptions}</select></div>
       <div style="display:flex;align-items:center;gap:8px"><label>區域</label><select class="sel" id="dashLoc" style="width:130px;padding:6px 10px;font-size:12px" onchange="renderDashboard()">${locOptions}</select></div>
       ${sheetLoaded ? badge('LIVE 🟢','var(--green)') : badge('離線','var(--textMut)')}
@@ -1179,11 +1281,21 @@ function renderDashboard(){
       </div>
     </div>
     <div class="grid grid-6" style="gap:0;margin-bottom:22px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">
-      ${[{l:"SOC缺失",v:s.totalSOC,c:"var(--blue)"},{l:"TPC缺失",v:s.totalNCR,c:"var(--purple)"},{l:"罰款",v:'NT$'+(s.penaltyAmount/1000).toFixed(0)+'K',c:"var(--red)"},{l:"總缺失",v:s.totalDefects,c:"var(--red)"},{l:"優點",v:s.positives,c:"var(--green)"},{l:"結案率",v:s.closureRate.toFixed(1)+'%',c:"var(--cyan)"}].map((x,i)=>`
+      ${[{l:"SOC缺失",v:s.totalSOC,c:"var(--blue)"},{l:"TPC缺失",v:s.totalNCR,c:"var(--purple)"},{l:"政府機關",v:s.totalGov||0,c:"var(--cyan)"},{l:"總缺失",v:s.totalDefects,c:"var(--red)"},{l:"優點",v:s.positives,c:"var(--green)"},{l:"結案率",v:s.closureRate.toFixed(1)+'%',c:"var(--cyan)"}].map((x,i)=>`
         <div style="padding:18px 10px;text-align:center;border-right:${i<5?'1px solid var(--border)':'none'}">
           <div style="font-size:10px;color:var(--textMut);font-weight:600;margin-bottom:6px">${x.l}</div>
           <div style="font-size:20px;font-weight:800;color:${x.c};font-family:var(--mono)">${x.v}</div>
         </div>`).join('')}
+    </div>
+    <div class="grid grid-2" style="gap:0;margin-bottom:22px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">
+      <div style="padding:14px 18px;border-right:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--textMut);font-weight:600">⚠️ TPC 罰款</span>
+        <span style="font-size:18px;font-weight:800;color:var(--red);font-family:var(--mono)">NT$${(s.penaltyAmount||0).toLocaleString()}</span>
+      </div>
+      <div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--textMut);font-weight:600">🏛️ 政府機關罰款</span>
+        <span style="font-size:18px;font-weight:800;color:var(--red);font-family:var(--mono)">NT$${(s.govPenalty||0).toLocaleString()}</span>
+      </div>
     </div>
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢</div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
@@ -1218,13 +1330,42 @@ function renderDashboard(){
     else if(tc) trendChart=new Chart(tc,{type:'line',data:{labels:['無資料'],datasets:[{data:[0],borderColor:'#5a6478',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
 
     const topCats = kpi.socByCategory.slice(0,8);
-    if(cc && topCats.length > 0) catChart=new Chart(cc,{type:'bar',data:{labels:topCats.map(c=>c.name),datasets:[{data:topCats.map(c=>c.value),backgroundColor:PAL,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#8b95a8',font:{size:10}},grid:{display:false}}}}});
+    const totalCats = kpi.socByCategory.reduce((s,c)=>s+c.value,0);
+    if(cc && topCats.length > 0) catChart=new Chart(cc,{
+      type:'bar',
+      data:{
+        labels:topCats.map(c=>c.name),
+        datasets:[{data:topCats.map(c=>c.value),backgroundColor:PAL,borderRadius:4}]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,indexAxis:'y',
+        layout:{padding:{right:60}},
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:(ctx)=>{const pct=totalCats>0?(ctx.parsed.x/totalCats*100).toFixed(1):0;return `${ctx.parsed.x} 件 (${pct}%)`;}}}
+        },
+        scales:{
+          x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},
+          y:{ticks:{color:'#8b95a8',font:{size:10}},grid:{display:false}}
+        },
+        animation:{onComplete:function(){
+          const chart=this; const ctx=chart.ctx;
+          ctx.font='bold 10px DM Sans, sans-serif';
+          ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#e8edf5';
+          chart.data.datasets[0].data.forEach((value, idx) => {
+            const meta = chart.getDatasetMeta(0).data[idx];
+            const pct = totalCats > 0 ? (value/totalCats*100).toFixed(1) : 0;
+            ctx.fillText(`${value} (${pct}%)`, meta.x + 6, meta.y);
+          });
+        }}
+      }
+    });
     else if(cc) catChart=new Chart(cc,{type:'bar',data:{labels:['無資料'],datasets:[{data:[0],backgroundColor:['#5a6478']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
   },100);
 }
 
 // ─── DEFICIENCY ──────────────────────────────────────────────
-let defTab = 'soc'; // 'soc' or 'tpc'
+let defTab = 'soc'; // 'soc' / 'tpc' / 'gov'
 function renderDeficiency(){
   const el=document.getElementById('page-deficiency');
   if (!sheetLoaded) {
@@ -1235,16 +1376,42 @@ function renderDeficiency(){
   const todayStr = new Date().toISOString().slice(0,10);
   const socOpen = g.allData.filter(d => d.source === 'SOC' && d.type !== '優點' && !d.solved);
   const tpcOpen = g.allData.filter(d => d.source === 'TPC NCR' && d.type !== '優點' && !d.solved);
+  const govOpen = g.allData.filter(d => d.source === 'Gov' && d.type !== '優點' && !d.solved);
   const tpcOverdue = tpcOpen.filter(d => d.dueDate && d.dueDate < todayStr).length;
+  const govOverdue = govOpen.filter(d => d.dueDate && d.dueDate < todayStr).length;
 
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="pill-btn" style="background:${defTab==='soc'?'var(--amberBg)':'var(--card)'};color:${defTab==='soc'?'var(--amber)':'var(--textSec)'}" onclick="defTab='soc';renderDeficiency()">SOC 未結案 (${socOpen.length})</button>
         <button class="pill-btn" style="background:${defTab==='tpc'?'var(--blueBg)':'var(--card)'};color:${defTab==='tpc'?'var(--blue)':'var(--textSec)'}" onclick="defTab='tpc';renderDeficiency()">TPC NCR 未結案 (${tpcOpen.length})${tpcOverdue>0?` <span style="color:var(--red);margin-left:4px">⚠️ ${tpcOverdue} 逾期</span>`:''}</button>
+        <button class="pill-btn" style="background:${defTab==='gov'?'rgba(6,182,212,.15)':'var(--card)'};color:${defTab==='gov'?'var(--cyan)':'var(--textSec)'}" onclick="defTab='gov';renderDeficiency()">🏛️ 政府機關 未結案 (${govOpen.length})${govOverdue>0?` <span style="color:var(--red);margin-left:4px">⚠️ ${govOverdue} 逾期</span>`:''}</button>
       </div>
     </div>
-    ${defTab === 'soc' ? renderSOCTable(socOpen) : renderTPCTable(tpcOpen)}`;
+    ${defTab === 'soc' ? renderSOCTable(socOpen) : defTab === 'tpc' ? renderTPCTable(tpcOpen) : renderGovTable(govOpen)}`;
+}
+
+function renderGovTable(items) {
+  const todayStr = new Date().toISOString().slice(0,10);
+  return `<div class="card"><div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>開立單位</th><th>發文字號</th><th>日期</th><th>承攬商</th><th>地點</th><th>缺失種類</th><th>內容</th><th>發規條款</th><th>改善期限</th><th>罰款</th></tr></thead>
+    <tbody>${items.length > 0 ? items.map(d => {
+      const overdue = d.dueDate && d.dueDate < todayStr;
+      return `
+      <tr style="${overdue?'background:rgba(239,68,68,.05)':''}">
+        <td style="font-weight:600;color:var(--cyan)">${d.issuer||'-'}</td>
+        <td style="font-family:var(--mono);font-size:10px">${d.docNo||'-'}</td>
+        <td style="white-space:nowrap">${d.date||'-'}</td>
+        <td style="font-weight:600">${d.subcontractor||'-'}</td>
+        <td>${d.location||'-'}</td>
+        <td>${d.category||'-'}</td>
+        <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.description||'').replace(/"/g,'&quot;')}">${d.description||'-'}</td>
+        <td style="font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.regulation||'').replace(/"/g,'&quot;')}">${d.regulation||'-'}</td>
+        <td style="white-space:nowrap;font-family:var(--mono);color:${overdue?'var(--red)':d.dueDate?'var(--text)':'var(--textMut)'};font-weight:${overdue?'700':'400'}">${d.dueDate||'-'}${overdue?' ⚠️':''}</td>
+        <td style="font-family:var(--mono);color:${d.penaltyAmount?'var(--red)':'var(--textMut)'}">${d.penaltyAmount ? 'NT$'+d.penaltyAmount.toLocaleString() : '-'}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="10" style="text-align:center;padding:36px;color:var(--textMut)">全部已結案 🎉</td></tr>'}</tbody>
+  </table></div></div>`;
 }
 
 function renderSOCTable(items) {
