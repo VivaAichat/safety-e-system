@@ -951,6 +951,18 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
     .map(c => ({...c, score: c.total > 0 ? Math.round((c.closed/c.total)*100) : 0}))
     .sort((a,b) => b.score - a.score);
 
+  // Positive (優點) ranking
+  const posStats = {};
+  filtered.forEach(item => {
+    if (item.subcontractor && item.type === '優點') {
+      if (!posStats[item.subcontractor]) posStats[item.subcontractor] = { name:item.subcontractor, count:0, soc:0, tpc:0 };
+      posStats[item.subcontractor].count++;
+      if (item.source === 'SOC') posStats[item.subcontractor].soc++;
+      else posStats[item.subcontractor].tpc++;
+    }
+  });
+  const positiveRank = Object.values(posStats).sort((a,b) => b.count - a.count);
+
   // Manpower stats
   const mpFiltered = g.manpowerData.filter(i => i.date >= startDate && i.date <= endDate);
   const mpByCompany = {};
@@ -1003,7 +1015,7 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
       rec, lti, lost, nm, fat, mtc, totalPeople, totalHours
     },
     ncrClosure: closureRate, ptwCompliance: ptwRate, tbmRate: tbmRate,
-    socByCategory, monthly, contractorRank, manpower,
+    socByCategory, monthly, contractorRank, positiveRank, manpower,
     // Monthly manpower by location (台中/通霄)
     monthlyManpower: calcMonthlyManpowerByLocation(startDate, endDate)
   };
@@ -1037,7 +1049,7 @@ function getFallbackKPI() {
   return {
     summary:{totalSOC:0,totalNCR:0,totalGov:0,totalDefects:0,positives:0,closureRate:0,manpower:0,safeHours:0,trir:0,ltir:0,far:0,nearMissRate:0,severityRate:0,mtcRate:0,penaltyAmount:0,govPenalty:0,conditionOpen:0,conditionClosed:0,actionOpen:0,actionClosed:0,lsrViolations:0,rec:0,lti:0,lost:0,nm:0,fat:0,mtc:0,totalPeople:0,totalHours:0},
     ncrClosure:0,ptwCompliance:0,tbmRate:0,
-    socByCategory:[],monthly:[],contractorRank:[],manpower:[],monthlyManpower:[]
+    socByCategory:[],monthly:[],contractorRank:[],positiveRank:[],manpower:[],monthlyManpower:[]
   };
 }
 
@@ -1306,7 +1318,7 @@ function renderDashboard(){
     </div>
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card">
-        <div class="card-head"><h3>🏆 承包商績效</h3></div>
+        <div class="card-head"><h3>🏆 承包商績效（缺失）</h3></div>
         <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>排名</th><th>承包商</th><th>條件</th><th>行為</th><th>合計</th><th>結案率</th></tr></thead>
         <tbody>${kpi.contractorRank.length > 0 ? kpi.contractorRank.map((c,i)=>{const r=c.total>0?Math.round((c.closed/c.total)*100):0;return`
           <tr><td style="font-weight:700;color:${i===0?'var(--amber)':'var(--text)'}">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</td>
@@ -1315,13 +1327,23 @@ function renderDashboard(){
           <td>${badge(r+'%',r>=80?'var(--green)':r>=60?'var(--amber)':'var(--red)')}</td></tr>`}).join('') : '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--textMut)">無資料</td></tr>'}</tbody></table></div>
       </div>
       <div class="card">
-        <div class="card-head"><h3>📋 缺失改善追蹤</h3></div>
-        <div class="grid grid-4" style="padding:16px;gap:10px">
-          <div style="text-align:center;padding:12px;background:var(--greenBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">條件已結案</div><div style="font-size:24px;font-weight:800;color:var(--green);font-family:var(--mono)">${s.conditionClosed}</div></div>
-          <div style="text-align:center;padding:12px;background:var(--amberBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">條件未結案</div><div style="font-size:24px;font-weight:800;color:var(--amber);font-family:var(--mono)">${s.conditionOpen}</div></div>
-          <div style="text-align:center;padding:12px;background:var(--blueBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">行為已結案</div><div style="font-size:24px;font-weight:800;color:var(--blue);font-family:var(--mono)">${s.actionClosed}</div></div>
-          <div style="text-align:center;padding:12px;background:var(--redBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">行為未結案</div><div style="font-size:24px;font-weight:800;color:var(--red);font-family:var(--mono)">${s.actionOpen}</div></div>
-        </div>
+        <div class="card-head"><h3>🌟 優點排名</h3></div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>排名</th><th>承包商</th><th>SOC</th><th>TPC/Gov</th><th>合計</th></tr></thead>
+        <tbody>${kpi.positiveRank.length > 0 ? kpi.positiveRank.map((c,i)=>`
+          <tr><td style="font-weight:700;color:${i===0?'var(--green)':'var(--text)'}">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</td>
+          <td style="font-weight:600">${c.name}</td>
+          <td style="font-family:var(--mono)">${c.soc}</td>
+          <td style="font-family:var(--mono)">${c.tpc}</td>
+          <td style="font-family:var(--mono);font-weight:700;color:var(--green)">${c.count}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--textMut)">無資料</td></tr>'}</tbody></table></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="card-head"><h3>📋 缺失改善追蹤</h3></div>
+      <div class="grid grid-4" style="padding:16px;gap:10px">
+        <div style="text-align:center;padding:12px;background:var(--greenBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">條件已結案</div><div style="font-size:24px;font-weight:800;color:var(--green);font-family:var(--mono)">${s.conditionClosed}</div></div>
+        <div style="text-align:center;padding:12px;background:var(--amberBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">條件未結案</div><div style="font-size:24px;font-weight:800;color:var(--amber);font-family:var(--mono)">${s.conditionOpen}</div></div>
+        <div style="text-align:center;padding:12px;background:var(--blueBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">行為已結案</div><div style="font-size:24px;font-weight:800;color:var(--blue);font-family:var(--mono)">${s.actionClosed}</div></div>
+        <div style="text-align:center;padding:12px;background:var(--redBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">行為未結案</div><div style="font-size:24px;font-weight:800;color:var(--red);font-family:var(--mono)">${s.actionOpen}</div></div>
       </div>
     </div>`;
 
