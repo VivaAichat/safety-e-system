@@ -142,7 +142,6 @@ a{color:var(--amber);text-decoration:none}
 </head>
 <body>
 
-<!-- ═══════ SIDEBAR ═══════ -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <div class="logo-icon">🛡️</div>
@@ -158,7 +157,6 @@ a{color:var(--amber);text-decoration:none}
   </div>
 </aside>
 
-<!-- ═══════ MAIN ═══════ -->
 <div class="main">
   <header class="header">
     <div>
@@ -171,17 +169,14 @@ a{color:var(--amber);text-decoration:none}
     </div>
   </header>
 
-  <!-- PAGES -->
   <div class="page" id="page-home"></div>
   <div class="page" id="page-dashboard" hidden></div>
   <div class="page" id="page-deficiency" hidden></div>
-  <div class="page" id="page-documents" hidden></div>
   <div class="page" id="page-tools" hidden></div>
   <div class="page" id="page-tracking" hidden></div>
   <div class="page" id="page-schedule" hidden></div>
 </div>
 
-<!-- ═══════ LOGIN MODAL ═══════ -->
 <div class="modal-overlay" id="loginModal">
   <div class="modal" style="max-width:360px" onclick="event.stopPropagation()">
     <div class="modal-head"><h3>🔐 管理員登入</h3><button class="btn-ghost" onclick="closeModal('loginModal')">✕</button></div>
@@ -195,7 +190,6 @@ a{color:var(--amber);text-decoration:none}
   </div>
 </div>
 
-<!-- ═══════ GENERIC MODAL ═══════ -->
 <div class="modal-overlay" id="genModal" onclick="closeModal('genModal')">
   <div class="modal" id="genModalBox" onclick="event.stopPropagation()">
     <div class="modal-head"><h3 id="genModalTitle"></h3><button class="btn-ghost" onclick="closeModal('genModal')">✕</button></div>
@@ -203,16 +197,20 @@ a{color:var(--amber);text-decoration:none}
   </div>
 </div>
 
-<!-- ═══════ TOAST ═══════ -->
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════
-// STATE & CONFIG
-// ═══════════════════════════════════════════════════════════════
 const SHEET_ID = "19KlNuUTQO4_qzP6mYEAxh97La-RjjcvpyMC5c8K7Pj8";
 const SHEET2_ID = "1AnSjD28WmpLRoDcUPWuyl5tPfU5Qt4cFiP0oaoLBFCg";
 const GAS_URL = "https://script.google.com/macros/s/AKfycbw-8arEgdKrSUo10TCt0wVhvZX1JCSGd97BpwYD1fsXm6WvE0VXTO3nxbhu-fKgh3X9/exec";
+
+// ─── 分頁名稱（GViz 靠分頁名稱抓資料，須與 Google Sheet 底部頁籤完全一致）───
+// NMDC 資料若抓不到，把下面兩行改成 Sheet 裡實際的分頁名稱即可。
+const TAB_NMDC_PENALTY = "NMDC penalty";
+const TAB_NMDC_NCR     = "NMDC NCR";
+// 危害種類/缺失統計只採計這三個來源；NMDC Penalty / NMDC NCR 一律不混入
+const SAFETY_SOURCES = ['SOC','TPC NCR','Gov'];
+
 let TEAM = ["Sam","Daniel","Yong","Jin","Ben","Elson","Jeffrey","Vic","Noah","Jet","Sue"];
 const CONTRACTORS = ["海義 HiE","美綺 Magitech","高虎 GAC","兆濰/茂富","天力 Tianli"];
 const LOCATIONS = ["台中 Taichung","通霄 Tongxiao","天力 Tianli","離岸 Offshore"];
@@ -237,30 +235,19 @@ let state = {
     {id:3,no:"TPC-2026-003",date:"2026-04-07",location:"通霄",contractor:"美綺 Magitech",category:"電氣安全",description:"臨時用電配線未固定，有觸電風險",status:"open",dueDate:"2026-04-14",response:""},
     {id:4,no:"TPC-2026-004",date:"2026-04-09",location:"通霄",contractor:"兆濰/茂富",category:"個人防護",description:"未穿著安全鞋進入工區",status:"open",dueDate:"2026-04-16",response:""}
   ],
-  docs: [
-    {sec:"安全管理程序 Safety Procedures",items:[{code:"NMDC-HSE-001",name:"HSE Management Plan",status:"complete",fileUrl:""},{code:"NMDC-HSE-002",name:"PTW Procedure",status:"complete",fileUrl:""},{code:"NMDC-HSE-003",name:"LOTO Procedure",status:"complete",fileUrl:""},{code:"NMDC-HSE-004",name:"Lifting & Rigging Procedure",status:"in-progress",fileUrl:""},{code:"NMDC-HSE-005",name:"Confined Space Entry",status:"complete",fileUrl:""},{code:"NMDC-HSE-006",name:"Hot Work Procedure",status:"complete",fileUrl:""}]},
-    {sec:"ISP 個別安全施工計畫 Individual Safety Procedure",items:[{code:"ISP-001",name:"海義 管線焊接 ISP",status:"complete",fileUrl:""},{code:"ISP-002",name:"高虎 吊掛作業 ISP",status:"in-progress",fileUrl:""},{code:"ISP-003",name:"美綺 電氣施工 ISP",status:"complete",fileUrl:""},{code:"ISP-004",name:"天力 風機安裝 ISP",status:"in-progress",fileUrl:""}]},
-    {sec:"風險評估 Risk Assessment",items:[{code:"NMDC-RA-001",name:"Submarine Pipeline Installation RA",status:"complete",fileUrl:""},{code:"NMDC-RA-002",name:"JSG High Pressure Grouting RA",status:"complete",fileUrl:""},{code:"NMDC-RA-003",name:"Marine Dredging RA",status:"in-progress",fileUrl:""}]},
-    {sec:"教育訓練 Training Materials",items:[{code:"NMDC-TR-001",name:"新進人員安全教育",status:"complete",fileUrl:""},{code:"NMDC-TR-002",name:"LOTO Training (中/英/泰)",status:"complete",fileUrl:""},{code:"NMDC-TR-003",name:"手部安全 Hand Safety",status:"complete",fileUrl:""}]},
-    {sec:"表格範本 Forms & Templates",items:[{code:"NMDC-FM-001",name:"BSA 行為安全觀察表",status:"complete",fileUrl:""},{code:"NMDC-FM-002",name:"TPC 缺失改善單",status:"complete",fileUrl:""},{code:"NMDC-FM-003",name:"TBM-KY 報告表",status:"complete",fileUrl:""}]}
-  ],
   tools: [{id:"tpc-def",name:"TPC 缺失單新增",desc:"新增TPC安全缺失改善單",icon:"⚠️",color:"var(--red)",type:"builtin"},{id:"sling-calc",name:"吊掛張力計算器",desc:"Sling Tension Calculator",icon:"🔧",color:"var(--purple)",type:"builtin"},{id:"gas-url",name:"GAS URL 設定",desc:"連接 Google Apps Script",icon:"🔗",color:"var(--textSec)",type:"builtin"}],
   schedule: {month:"2026-04",people:[]},
-  leave: [], // 臨時請假紀錄: [{id, date, name, reason}]
+  leave: [],
 };
 if(!state.schedule.people || state.schedule.people.length === 0) {
   state.schedule.people = TEAM.map(p => ({name:p, days:Array.from({length:30},(_,i)=>{const wd=new Date(2026,3,i+1).getDay();return wd===0||wd===6?"H":"R"})}));
 }
 state.def.forEach(d => d.severity = autoSeverity(d.description, d.category));
 
-// ═══════════════════════════════════════════════════════════════
-// GOOGLE SHEET LIVE DATA ENGINE (Google Visualization API)
-// ═══════════════════════════════════════════════════════════════
 let gsheetData = {allData:[], manpowerData:[], tbmByDate:{}, workingDaysByDate:{}, totalPeopleByDate:{}, totalHoursByDate:{}, incidentData:{}, socSubcontractors:new Set()};
 let sheetLoaded = false;
 let sheetLoadError = false;
 
-// ── JSONP loader (bypasses CORS & sandbox restrictions) ──
 let _jsonpCounter = 0;
 function loadSheetJsonp(sheetName) {
   return new Promise((resolve, reject) => {
@@ -270,14 +257,12 @@ function loadSheetJsonp(sheetName) {
       if (script.parentNode) script.parentNode.removeChild(script);
       reject(new Error('JSONP timeout for ' + sheetName));
     }, 15000);
-
     window[cbName] = function(resp) {
       clearTimeout(timeout);
       delete window[cbName];
       if (script.parentNode) script.parentNode.removeChild(script);
       resolve(resp);
     };
-
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
     const script = document.createElement('script');
     script.src = url;
@@ -291,21 +276,29 @@ function loadSheetJsonp(sheetName) {
   });
 }
 
-// ── Parse GViz date value (handles "Date(y,m,d)" and Excel serial) ──
+// Try several candidate tab names; return first that loads OK (handles name/spacing guesses)
+async function loadSheetJsonpMulti(candidates) {
+  for (const name of candidates) {
+    try {
+      const resp = await loadSheetJsonp(name);
+      if (resp && resp.status !== 'error' && resp.table && resp.table.cols && resp.table.cols.length) {
+        resp.__tabName = name;
+        return resp;
+      }
+    } catch(e) { /* try next */ }
+  }
+  return null;
+}
+
 function parseGvizDate(val) {
   if (val === null || val === undefined) return '';
-  // Helper: format local Date as YYYY-MM-DD
   const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-
   if (typeof val === 'string' && val.startsWith('Date(')) {
     const parts = val.replace('Date(','').replace(')','').split(',').map(Number);
-    // Build date directly from Y/M/D components (no time, no UTC)
     const d = new Date(parts[0], parts[1], parts[2]||1);
     return fmt(d);
   }
   if (typeof val === 'number') {
-    // Excel serial date → JS date (epoch 1899-12-30)
-    // Excel days are local, so we extract Y/M/D from UTC and rebuild as local
     const utcMs = (val - 25569) * 86400000;
     const utc = new Date(utcMs);
     const d = new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
@@ -314,39 +307,40 @@ function parseGvizDate(val) {
   return String(val);
 }
 
-// ── Convert SOC/TPC_NCR table (label-based columns) ──
-function gvizToFormRows(gvizTable) {
-  // Map label keywords → short keys
-  const LABEL_MAP = {
-    'filled date': 'filled_date',
-    '填寫日期': 'filled_date',
-    'observation type': 'observation_type',
-    '觀察種類': 'observation_type',
-    'observed subcontractor': 'observed_subcontractor',
-    '觀察到的承攬商': 'observed_subcontractor',
-    'location': 'location',
-    '地點': 'location',
-    'hazard type': 'hazard_type',
-    '危害種類': 'hazard_type',
-    'lsr violated': 'LSR_violated',
-    '保命原則': 'LSR_violated',
-    'dercription': 'description',  // typo in actual sheet label
-    'description': 'description',
-    '描述觀察': 'description',
-    'already been solved': 'already_solved',
-    '已經解決': 'already_solved',
-    'operation': 'operation',
-    '工作內容': 'operation',
-  };
+// Flexible date normalizer for free-text date cells (M/D/YYYY, YYYY/M/D, YYYY-MM-DD)
+function normalizeFlexDate(val) {
+  if (val === null || val === undefined || val === '') return '';
+  if (typeof val === 'string' && val.startsWith('Date(')) return parseGvizDate(val);
+  if (typeof val === 'number') return parseGvizDate(val);
+  const s = String(val).trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  let m = s.match(/^(\d{4})[\/.](\d{1,2})[\/.](\d{1,2})$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  m = s.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})$/);
+  if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  m = s.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{2})$/);
+  if (m) return `20${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  return s;
+}
 
+function gvizToFormRows(gvizTable) {
+  const LABEL_MAP = {
+    'filled date':'filled_date','填寫日期':'filled_date',
+    'observation type':'observation_type','觀察種類':'observation_type',
+    'observed subcontractor':'observed_subcontractor','觀察到的承攬商':'observed_subcontractor',
+    'location':'location','地點':'location',
+    'hazard type':'hazard_type','危害種類':'hazard_type',
+    'lsr violated':'LSR_violated','保命原則':'LSR_violated',
+    'dercription':'description','description':'description','描述觀察':'description',
+    'already been solved':'already_solved','已經解決':'already_solved',
+    'operation':'operation','工作內容':'operation',
+  };
   const colKeys = gvizTable.cols.map(c => {
     const lbl = (c.label || '').toLowerCase();
-    for (const [kw, key] of Object.entries(LABEL_MAP)) {
-      if (lbl.includes(kw.toLowerCase())) return key;
-    }
-    return c.id; // fallback to column ID
+    for (const [kw, key] of Object.entries(LABEL_MAP)) { if (lbl.includes(kw.toLowerCase())) return key; }
+    return c.id;
   });
-
   return gvizTable.rows.map(row => {
     const obj = {};
     row.c.forEach((cell, i) => {
@@ -361,34 +355,20 @@ function gvizToFormRows(gvizTable) {
   });
 }
 
-// ── Convert manpower table (no labels, row 0 = date serials, rows 1+ = companies) ──
 function gvizToManpowerData(gvizTable) {
   const rows = gvizTable.rows;
   if (rows.length < 2) return [];
-
-  // Row 0: column A is empty/header, columns B+ are Excel date serial numbers
   const dateRow = rows[0];
-  const dateMap = {}; // col index → date string
-  dateRow.c.forEach((cell, i) => {
-    if (i === 0 || !cell || cell.v === null) return;
-    dateMap[i] = parseGvizDate(cell.v);
-  });
-
-  // Rows 1+: column A = company name, columns B+ = daily counts
+  const dateMap = {};
+  dateRow.c.forEach((cell, i) => { if (i === 0 || !cell || cell.v === null) return; dateMap[i] = parseGvizDate(cell.v); });
   const result = [];
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r];
     const companyCell = row.c[0];
     const company = companyCell ? String(companyCell.v || '') : '';
     if (!company) continue;
-
     const dailyData = {};
-    row.c.forEach((cell, i) => {
-      if (i === 0 || !dateMap[i] || !cell) return;
-      const cnt = parseFloat(cell.v) || 0;
-      dailyData[dateMap[i]] = cnt;
-    });
-
+    row.c.forEach((cell, i) => { if (i === 0 || !dateMap[i] || !cell) return; const cnt = parseFloat(cell.v) || 0; dailyData[dateMap[i]] = cnt; });
     result.push({ company, dailyData });
   }
   return result;
@@ -403,157 +383,101 @@ function getDefectCategory(t) {
   return null;
 }
 
-// ── Convert tracking table ──
-// Columns: id, item, assignees, deadline, priority, status, note
 function gvizToTrackingRows(gvizTable) {
-  const TRK_MAP = {
-    'id': 'id', 'item': 'item', 'assignees': 'assignees', 'assignee': 'assignees',
-    'deadline': 'deadline', 'priority': 'priority', 'status': 'status', 'note': 'note',
-    '事項': 'item', '負責人': 'assignees', '期限': 'deadline', '優先度': 'priority', '狀態': 'status', '備註': 'note'
-  };
-  const colKeys = gvizTable.cols.map(c => {
-    const lbl = (c.label || '').toLowerCase().trim();
-    for (const [kw, key] of Object.entries(TRK_MAP)) {
-      if (lbl.includes(kw.toLowerCase())) return key;
-    }
-    return c.id;
-  });
+  const TRK_MAP = {'id':'id','item':'item','assignees':'assignees','assignee':'assignees','deadline':'deadline','priority':'priority','status':'status','note':'note','事項':'item','負責人':'assignees','期限':'deadline','優先度':'priority','狀態':'status','備註':'note'};
+  const colKeys = gvizTable.cols.map(c => { const lbl = (c.label || '').toLowerCase().trim(); for (const [kw, key] of Object.entries(TRK_MAP)) { if (lbl.includes(kw.toLowerCase())) return key; } return c.id; });
   return gvizTable.rows.map(row => {
     const obj = {};
-    row.c.forEach((cell, i) => {
-      if (!cell || cell.v === null || cell.v === undefined) return;
-      let val = cell.v;
-      const key = colKeys[i];
-      if (key === 'deadline') val = parseGvizDate(val);
-      obj[key] = val;
-    });
-    // Normalize
+    row.c.forEach((cell, i) => { if (!cell || cell.v === null || cell.v === undefined) return; let val = cell.v; const key = colKeys[i]; if (key === 'deadline') val = parseGvizDate(val); obj[key] = val; });
     const assigneeStr = obj.assignees || '';
     const assignees = typeof assigneeStr === 'string' ? assigneeStr.split(/[,，、;]\s*/).filter(Boolean) : [String(assigneeStr)];
-    return {
-      id: obj.id || Date.now() + Math.random(),
-      item: obj.item || '',
-      assignees: assignees,
-      deadline: obj.deadline || '',
-      priority: obj.priority || 'medium',
-      status: obj.status || 'pending',
-      note: obj.note || ''
-    };
-  }).filter(r => r.item); // skip empty rows
+    return { id: obj.id || Date.now() + Math.random(), item: obj.item || '', assignees: assignees, deadline: obj.deadline || '', priority: obj.priority || 'medium', status: obj.status || 'pending', note: obj.note || '' };
+  }).filter(r => r.item);
 }
 
-// ── GAS API helpers (read/write to Sheet 2) ──
+// NMDC subcontractor abbreviation → full name
+const NMDC_SUBCON_MAP = {
+  'MGT':'美綺 Magitech','Magitech':'美綺 Magitech',
+  'HiE':'海義 HiE','HIE':'海義 HiE',
+  'GW':'兆濰/茂富 Chaowei/Glory Wealth','Glory Wealth':'兆濰/茂富 Chaowei/Glory Wealth',
+  'CW':'兆濰/茂富 Chaowei/Glory Wealth','Chaowei':'兆濰/茂富 Chaowei/Glory Wealth',
+  'GAC':'高虎 GAC','BLA':'邊行 BLA','NMDC':'安達希 NMDC'
+};
+function mapNmdcSubcon(raw) { const k = String(raw || '').trim(); if (!k) return ''; return NMDC_SUBCON_MAP[k] || k; }
+
+// NMDC Penalty: Penalty No. | Issue date | Subcon | Reporter | Clauses | Violation fact | Amount | Revoked
+function gvizToNmdcPenaltyRows(gvizTable) {
+  const MAP = {'penalty no':'penalty_no','罰款編號':'penalty_no','issue date':'issue_date','開單日期':'issue_date','日期':'issue_date','subcon':'subcon','承攬商':'subcon','廠商':'subcon','reporter':'reporter','clause':'clauses','條款':'clauses','violation fact':'violation','violation':'violation','違規':'violation','事實':'violation','amount':'amount','金額':'amount','罰款':'amount','revoke':'revoked','撤銷':'revoked'};
+  const colKeys = gvizTable.cols.map(c => { const lbl = (c.label || '').toLowerCase().trim(); for (const [kw, key] of Object.entries(MAP)) { if (lbl.includes(kw.toLowerCase())) return key; } return c.id; });
+  return gvizTable.rows.map(row => {
+    const obj = {};
+    row.c.forEach((cell, i) => { if (!cell || cell.v === null || cell.v === undefined) return; let val = cell.v; const key = colKeys[i]; if (key === 'issue_date') val = normalizeFlexDate(val); obj[key] = val; });
+    return obj;
+  }).filter(r => r.penalty_no || r.violation || r.amount);
+}
+
+// NMDC NCR: 違規廠商 | 改善單編號 | 違規地點 | 違規敘述 | 缺失日期 | 開單日期 | 準備者 | 到期日 | 結案日期 | 結案收件者
+function gvizToNmdcNcrRows(gvizTable) {
+  const MAP = {'違規廠商':'subcon','廠商':'subcon','改善單編號':'ncr_no','編號':'ncr_no','違規地點':'location','地點':'location','違規敘述':'description','敘述':'description','內容':'description','缺失日期':'defect_date','開單日期':'issue_date','準備者':'preparer','到期日':'due_date','期限':'due_date','結案日期':'close_date','結案收件者':'close_recipient','收件':'close_recipient'};
+  const colKeys = gvizTable.cols.map(c => { const lbl = (c.label || '').trim(); for (const [kw, key] of Object.entries(MAP)) { if (lbl.includes(kw)) return key; } return c.id; });
+  return gvizTable.rows.map(row => {
+    const obj = {};
+    row.c.forEach((cell, i) => { if (!cell || cell.v === null || cell.v === undefined) return; let val = cell.v; const key = colKeys[i]; if (['defect_date','issue_date','due_date','close_date'].includes(key)) val = normalizeFlexDate(val); obj[key] = val; });
+    return obj;
+  }).filter(r => r.ncr_no || r.description || r.subcon);
+}
+
 async function gasRead(tab) {
-  try {
-    const resp = await fetch(GAS_URL + '?action=read&tab=' + encodeURIComponent(tab));
-    const json = await resp.json();
-    return json.data || [];
-  } catch(e) { console.error('GAS read error:', e); return []; }
+  try { const resp = await fetch(GAS_URL + '?action=read&tab=' + encodeURIComponent(tab)); const json = await resp.json(); return json.data || []; }
+  catch(e) { console.error('GAS read error:', e); return []; }
 }
-
 async function gasWrite(tab, data) {
-  try {
-    const resp = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: {'Content-Type':'text/plain'},
-      body: JSON.stringify({ action:'write', tab: tab, data: data })
-    });
-    const json = await resp.json();
-    if (!json.success) console.error('GAS write error:', json.error);
-    return json.success;
-  } catch(e) { console.error('GAS write error:', e); return false; }
+  try { const resp = await fetch(GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({ action:'write', tab: tab, data: data }) }); const json = await resp.json(); if (!json.success) console.error('GAS write error:', json.error); return json.success; }
+  catch(e) { console.error('GAS write error:', e); return false; }
 }
-
 let gasConnected = false;
 
 async function loadGoogleSheetData() {
   const statusEl = document.getElementById('sheetStatus');
   statusEl.innerHTML = '<span style="color:var(--amber);animation:pulse 1s infinite">● 連線中...</span>';
-
   try {
-    // Load Sheet 1 (SOC, TPC NCR, manpower, Gov) via GViz JSONP
-    const [socGviz, tpcGviz, mpGviz, govGviz] = await Promise.all([
+    const [socGviz, tpcGviz, mpGviz, govGviz, penGviz, ncrGviz] = await Promise.all([
       loadSheetJsonp('SOC'),
       loadSheetJsonp('TPC NCR'),
       loadSheetJsonp('manpower'),
       loadSheetJsonp('Gov').catch(()=>null),
+      loadSheetJsonpMulti([TAB_NMDC_PENALTY, 'NMDC Penalty', 'NMDC penalty ', 'NMDC Penalty ', 'Penalty']).catch(()=>null),
+      loadSheetJsonpMulti([TAB_NMDC_NCR, 'NMDC ncr', 'NMDC NCR ', 'NMDC_NCR']).catch(()=>null),
     ]);
-
-    if (socGviz.status === 'error' || tpcGviz.status === 'error' || mpGviz.status === 'error') {
-      throw new Error('GViz query error');
-    }
+    if (socGviz.status === 'error' || tpcGviz.status === 'error' || mpGviz.status === 'error') throw new Error('GViz query error');
 
     const socRows = gvizToFormRows(socGviz.table);
     const tpcRows = gvizToTpcRows(tpcGviz.table);
     const mpData  = gvizToManpowerData(mpGviz.table);
     const govRows = (govGviz && govGviz.table) ? gvizToGovRows(govGviz.table) : [];
-    processSheetData(socRows, tpcRows, mpData, govRows);
-
+    const penRows = (penGviz && penGviz.table) ? gvizToNmdcPenaltyRows(penGviz.table) : [];
+    const ncrRows = (ncrGviz && ncrGviz.table) ? gvizToNmdcNcrRows(ncrGviz.table) : [];
+    processSheetData(socRows, tpcRows, mpData, govRows, penRows, ncrRows);
     sheetLoaded = true;
 
-    // Load Sheet 2 (tracking, announcements, leave) via GAS
     try {
-      const [trkData, annData, lvData] = await Promise.all([
-        gasRead('tracking'),
-        gasRead('announcements'),
-        gasRead('leave')
-      ]);
-
-      // Helper: normalize date from GAS (may be "YYYY-MM-DD", ISO string, or Date string)
+      const [trkData, annData, lvData] = await Promise.all([ gasRead('tracking'), gasRead('announcements'), gasRead('leave') ]);
       function normalizeDate(v) {
         if (!v) return '';
         const s = String(v);
-        // Already in YYYY-MM-DD format
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-        // ISO format like "2026-05-06T07:00:00.000Z" - extract local YYYY-MM-DD
-        if (s.includes('T')) {
-          const d = new Date(s);
-          if (!isNaN(d.getTime())) {
-            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-          }
-        }
+        if (s.includes('T')) { const d = new Date(s); if (!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
         return s;
       }
-
-      if (trkData.length > 0) {
-        state.trk = trkData.map(r => ({
-          id: r.id || Date.now() + Math.random(),
-          item: r.item || '',
-          assignees: typeof r.assignees === 'string' ? r.assignees.split(/[,，、;]\s*/).filter(Boolean) : [],
-          deadline: normalizeDate(r.deadline),
-          priority: r.priority || 'medium',
-          status: r.status || 'pending',
-          note: r.note || ''
-        }));
-      }
-
-      if (annData.length > 0) {
-        state.ann = annData.map(r => ({
-          id: r.id || Date.now() + Math.random(),
-          date: normalizeDate(r.date),
-          content: r.content || '',
-          priority: r.priority || 'medium'
-        }));
-      }
-
-      if (lvData.length > 0) {
-        state.leave = lvData.map(r => ({
-          id: r.id || Date.now() + Math.random(),
-          date: normalizeDate(r.date),
-          name: r.name || '',
-          reason: r.reason || ''
-        }));
-      }
-
+      if (trkData.length > 0) state.trk = trkData.map(r => ({ id: r.id || Date.now() + Math.random(), item: r.item || '', assignees: typeof r.assignees === 'string' ? r.assignees.split(/[,，、;]\s*/).filter(Boolean) : [], deadline: normalizeDate(r.deadline), priority: r.priority || 'medium', status: r.status || 'pending', note: r.note || '' }));
+      if (annData.length > 0) state.ann = annData.map(r => ({ id: r.id || Date.now() + Math.random(), date: normalizeDate(r.date), content: r.content || '', priority: r.priority || 'medium' }));
+      if (lvData.length > 0) state.leave = lvData.map(r => ({ id: r.id || Date.now() + Math.random(), date: normalizeDate(r.date), name: r.name || '', reason: r.reason || '' }));
       saveState();
       gasConnected = true;
-    } catch(gasErr) {
-      console.warn('GAS load failed, using local data:', gasErr);
-    }
+    } catch(gasErr) { console.warn('GAS load failed, using local data:', gasErr); }
 
-    statusEl.innerHTML = `<span style="color:var(--green)">● 雲端已連線</span> <span style="font-size:10px;color:var(--textMut)">(SOC:${socRows.length} TPC:${tpcRows.length} Gov:${govRows.length} MP:${mpData.length})</span>${gasConnected ? ' <span style="color:var(--green);font-size:10px">● GAS 已連線</span>' : ''}`;
+    statusEl.innerHTML = `<span style="color:var(--green)">● 雲端已連線</span> <span style="font-size:10px;color:var(--textMut)">(SOC:${socRows.length} TPC:${tpcRows.length} Gov:${govRows.length} NMDC罰款:${penRows.length} NMDC-NCR:${ncrRows.length} MP:${mpData.length})</span>${gasConnected ? ' <span style="color:var(--green);font-size:10px">● GAS 已連線</span>' : ''}`;
     toast('Google Sheet 資料載入完成 ✓');
-
     renderPage(currentPage);
   } catch(err) {
     console.error('Sheet load error:', err);
@@ -562,103 +486,34 @@ async function loadGoogleSheetData() {
   }
 }
 
-// ── Convert Gov table (政府機關開立的缺失) ──
-// Columns: 開單日期, 開立單位, 發文字號, 發規條款, 承攬商, 開立總類, 地點, 內容, 缺失種類, 罰款金額, 改善期限, 是否結案, 結案日期
+// Gov: 開單日期,開立單位,發文字號,發規條款,承攬商,開立總類,地點,內容,缺失種類,罰款金額,改善期限,是否結案,結案日期
 function gvizToGovRows(gvizTable) {
-  const GOV_LABEL_MAP = {
-    '開單日期': 'issue_date',
-    '開立單位': 'issuer',
-    '發文字號': 'doc_no',
-    '發規條款': 'regulation',
-    '承攬商': 'contractor',
-    '開立總類': 'issue_category',
-    '地點': 'area',
-    '內容': 'description',
-    '缺失種類': 'defect_type',
-    '罰款金額': 'penalty_amount',
-    '改善期限': 'due_date',
-    '是否結案': 'is_closed',
-    '結案日期': 'close_date',
-  };
-  const colKeys = gvizTable.cols.map(c => {
-    const lbl = (c.label || '').trim();
-    for (const [kw, key] of Object.entries(GOV_LABEL_MAP)) {
-      if (lbl.includes(kw)) return key;
-    }
-    return c.id;
-  });
+  const MAP = {'開單日期':'issue_date','開立單位':'issuer','發文字號':'doc_no','發規條款':'regulation','承攬商':'contractor','開立總類':'issue_category','地點':'area','內容':'description','缺失種類':'defect_type','罰款金額':'penalty_amount','改善期限':'due_date','是否結案':'is_closed','結案日期':'close_date'};
+  const colKeys = gvizTable.cols.map(c => { const lbl = (c.label || '').trim(); for (const [kw, key] of Object.entries(MAP)) { if (lbl.includes(kw)) return key; } return c.id; });
   return gvizTable.rows.map(row => {
     const obj = {};
-    row.c.forEach((cell, i) => {
-      if (!cell) return;
-      let val = cell.v;
-      if (val === null || val === undefined) return;
-      const key = colKeys[i];
-      if (key === 'issue_date' || key === 'close_date' || key === 'due_date') val = parseGvizDate(val);
-      obj[key] = val;
-    });
+    row.c.forEach((cell, i) => { if (!cell) return; let val = cell.v; if (val === null || val === undefined) return; const key = colKeys[i]; if (key === 'issue_date' || key === 'close_date' || key === 'due_date') val = parseGvizDate(val); obj[key] = val; });
     return obj;
   });
 }
 
-// ── Convert TPC NCR table (different column structure) ──
-// Columns: 開單日期, 開立單位, 主辦組, 巡檢類型, 管登編號, 承攬商, 開立總類, 其他 Other, 內容, 缺失種類, 罰款金額, 是否結案, 結案日期
+// TPC NCR: 開單日期,開立單位,主辦組,巡檢類型,管登編號,承攬商,開立總類,其他,內容,缺失種類,罰款金額,改善期限,是否結案,結案日期
 function gvizToTpcRows(gvizTable) {
-  const TPC_LABEL_MAP = {
-    '開單日期': 'issue_date',
-    '開立單位': 'issuer',
-    '主辦組': 'department',
-    '巡檢類型': 'inspection_type',
-    '管登編號': 'ncr_no',
-    '承攬商': 'contractor',
-    '開立總類': 'issue_category',
-    '其他': 'other_category',
-    '地點': 'area',
-    '內容': 'description',
-    '缺失種類': 'defect_type',
-    '罰款金額': 'penalty_amount',
-    '改善期限': 'due_date',
-    '是否結案': 'is_closed',
-    '結案日期': 'close_date',
-  };
-
-  const colKeys = gvizTable.cols.map(c => {
-    const lbl = (c.label || '').trim();
-    for (const [kw, key] of Object.entries(TPC_LABEL_MAP)) {
-      if (lbl.includes(kw)) return key;
-    }
-    return c.id;
-  });
-
+  const MAP = {'開單日期':'issue_date','開立單位':'issuer','主辦組':'department','巡檢類型':'inspection_type','管登編號':'ncr_no','承攬商':'contractor','開立總類':'issue_category','其他':'other_category','地點':'area','內容':'description','缺失種類':'defect_type','罰款金額':'penalty_amount','改善期限':'due_date','是否結案':'is_closed','結案日期':'close_date'};
+  const colKeys = gvizTable.cols.map(c => { const lbl = (c.label || '').trim(); for (const [kw, key] of Object.entries(MAP)) { if (lbl.includes(kw)) return key; } return c.id; });
   return gvizTable.rows.map(row => {
     const obj = {};
-    row.c.forEach((cell, i) => {
-      if (!cell) return;
-      let val = cell.v;
-      if (val === null || val === undefined) return;
-      const key = colKeys[i];
-      if (key === 'issue_date' || key === 'close_date' || key === 'due_date') val = parseGvizDate(val);
-      obj[key] = val;
-    });
+    row.c.forEach((cell, i) => { if (!cell) return; let val = cell.v; if (val === null || val === undefined) return; const key = colKeys[i]; if (key === 'issue_date' || key === 'close_date' || key === 'due_date') val = parseGvizDate(val); obj[key] = val; });
     return obj;
   });
 }
 
-function processSheetData(socRows, tpcRows, mpData, govRows) {
-  govRows = govRows || [];
+function processSheetData(socRows, tpcRows, mpData, govRows, penRows, ncrRows) {
+  govRows = govRows || []; penRows = penRows || []; ncrRows = ncrRows || [];
   const g = gsheetData;
-  g.allData = [];
-  g.manpowerData = [];
-  g.tbmByDate = {};
-  g.workingDaysByDate = {};
-  g.totalPeopleByDate = {};
-  g.totalHoursByDate = {};
-  g.incidentData = {};
-  g.socSubcontractors = new Set();
-
+  g.allData = []; g.manpowerData = []; g.tbmByDate = {}; g.workingDaysByDate = {}; g.totalPeopleByDate = {}; g.totalHoursByDate = {}; g.incidentData = {}; g.socSubcontractors = new Set();
   const INCIDENT_KEYS = ['Recordable incidents','LTI cases','Lost days','Near Miss','Fatalities','Medical treatment','Medical Treatment','MTC','醫療處理'];
 
-  // ── Helper: process one form row (SOC and TPC_NCR share the same structure) ──
   function processFormRow(row, idx, source) {
     const sub = row.observed_subcontractor || '';
     if (sub) g.socSubcontractors.add(sub);
@@ -671,138 +526,74 @@ function processSheetData(socRows, tpcRows, mpData, govRows) {
     const solved = row.already_solved === true || String(row.already_solved).toLowerCase() === 'true';
     const lsrRaw = String(row.LSR_violated || '').toLowerCase();
     const lsrViolated = lsrRaw === 'true' || lsrRaw.includes('是') || lsrRaw.includes('yes');
-
-    g.allData.push({
-      id: source + '-' + idx,
-      date: filledDate,
-      type: dc === 'Positive' ? '優點' : '缺點',
-      defectCategory: dc,
-      subcontractor: sub,
-      category: hazType,
-      location: loc,
-      description: desc,
-      solved: solved,
-      lsr: lsrViolated,
-      source: source,
-      isPTWViolation: hazType.includes('工作許可') || (desc||'').toLowerCase().includes('ptw') || (desc||'').includes('工作許可')
-    });
+    g.allData.push({ id: source + '-' + idx, date: filledDate, type: dc === 'Positive' ? '優點' : '缺點', defectCategory: dc, subcontractor: sub, category: hazType, location: loc, description: desc, solved: solved, lsr: lsrViolated, source: source, isPTWViolation: hazType.includes('工作許可') || (desc||'').toLowerCase().includes('ptw') || (desc||'').includes('工作許可') });
   }
-
   socRows.forEach((row, idx) => processFormRow(row, idx, 'SOC'));
 
-  // ── Process TPC NCR rows (completely different structure) ──
-  // Columns: issue_date, contractor, issue_category, defect_type, penalty_amount, is_closed, description, other_category
+  function matchSub(contractor) {
+    let matched = contractor;
+    g.socSubcontractors.forEach(s => {
+      if ((contractor.includes('兆濰') && s.includes('兆濰')) || (contractor.includes('茂富') && s.includes('茂富')) ||
+          (contractor.includes('NMDC') && s.includes('NMDC')) || (contractor.includes('安達希') && s.includes('NMDC')) ||
+          (contractor.includes('環海') && s.includes('環海')) || (contractor.includes('EGS') && s.includes('EGS')) ||
+          (contractor.includes('海義') && s.includes('海義')) || (contractor.includes('HiE') && s.includes('HiE')) ||
+          (contractor.includes('高虎') && s.includes('高虎')) || (contractor.includes('GAC') && s.includes('GAC')) ||
+          (contractor.includes('美綺') && s.includes('美綺')) || (contractor.includes('天力') && s.includes('天力'))) matched = s;
+    });
+    return matched;
+  }
+
   tpcRows.forEach((row, idx) => {
     let contractor = row.contractor || '';
-    // Try to match with SOC subcontractor names
-    let matchedSub = contractor;
-    g.socSubcontractors.forEach(s => {
-      if ((contractor.includes('兆濰') && s.includes('兆濰')) ||
-          (contractor.includes('茂富') && s.includes('茂富')) ||
-          (contractor.includes('NMDC') && s.includes('NMDC')) ||
-          (contractor.includes('安達希') && s.includes('NMDC')) ||
-          (contractor.includes('環海') && s.includes('環海')) ||
-          (contractor.includes('EGS') && s.includes('EGS')) ||
-          (contractor.includes('海義') && s.includes('海義')) ||
-          (contractor.includes('HiE') && s.includes('HiE')) ||
-          (contractor.includes('高虎') && s.includes('高虎')) ||
-          (contractor.includes('GAC') && s.includes('GAC')) ||
-          (contractor.includes('美綺') && s.includes('美綺')) ||
-          (contractor.includes('天力') && s.includes('天力'))) matchedSub = s;
-    });
-
+    let matchedSub = matchSub(contractor);
     let penaltyAmount = 0;
     if (row.penalty_amount) penaltyAmount = parseFloat(String(row.penalty_amount).replace(/[^\d.]/g,'')) || 0;
-
-    // 開立總類 (issue_category): 不安全條件, 不安全行為, 優點
-    // 巡檢類型 (inspection_type): 罰單 (now moved here)
     const issueCat = row.issue_category || '';
     const inspType = row.inspection_type || '';
     let type = '缺點', dc = 'Condition';
-    if (inspType.includes('罰單') || issueCat.includes('罰單')) type = '罰單'; // backward compatible
+    if (inspType.includes('罰單') || issueCat.includes('罰單')) type = '罰單';
     else if (issueCat.includes('優點') || issueCat.includes('Good practice')) { type = '優點'; dc = 'Positive'; }
     if (issueCat.includes('不安全行為') || issueCat.includes('Unsafe action')) dc = 'Action';
     if (issueCat.includes('不安全條件') || issueCat.includes('Unsafe condition')) dc = 'Condition';
-
     const defectType = row.defect_type || row.other_category || '';
     const desc = row.description || '';
     const dtStr = defectType.toLowerCase();
     const isClosed = row.is_closed === '是' || row.is_closed === true || String(row.is_closed).includes('是');
-
-    g.allData.push({
-      id: 'TPC-'+idx,
-      date: row.issue_date || '',
-      type: type,
-      defectCategory: dc,
-      subcontractor: matchedSub || contractor,
-      category: defectType,
-      location: row.area || '',
-      description: desc,
-      solved: isClosed,
-      lsr: false,
-      penaltyAmount: penaltyAmount,
-      ncrNo: row.ncr_no || '',
-      dueDate: row.due_date || '',
-      source: 'TPC NCR',
-      isPTWViolation: dtStr.includes('工作許可') || dtStr.includes('ptw') || dtStr.includes('permit')
-    });
+    g.allData.push({ id: 'TPC-'+idx, date: row.issue_date || '', type: type, defectCategory: dc, subcontractor: matchedSub || contractor, category: defectType, location: row.area || '', description: desc, solved: isClosed, lsr: false, penaltyAmount: penaltyAmount, ncrNo: row.ncr_no || '', dueDate: row.due_date || '', source: 'TPC NCR', isPTWViolation: dtStr.includes('工作許可') || dtStr.includes('ptw') || dtStr.includes('permit') });
   });
 
-  // ── Process Gov rows (政府機關開立的缺失) ──
   govRows.forEach((row, idx) => {
     let contractor = row.contractor || '';
-    let matchedSub = contractor;
-    g.socSubcontractors.forEach(s => {
-      if ((contractor.includes('兆濰') && s.includes('兆濰')) ||
-          (contractor.includes('茂富') && s.includes('茂富')) ||
-          (contractor.includes('NMDC') && s.includes('NMDC')) ||
-          (contractor.includes('安達希') && s.includes('NMDC')) ||
-          (contractor.includes('環海') && s.includes('環海')) ||
-          (contractor.includes('EGS') && s.includes('EGS')) ||
-          (contractor.includes('海義') && s.includes('海義')) ||
-          (contractor.includes('HiE') && s.includes('HiE')) ||
-          (contractor.includes('高虎') && s.includes('高虎')) ||
-          (contractor.includes('GAC') && s.includes('GAC')) ||
-          (contractor.includes('美綺') && s.includes('美綺')) ||
-          (contractor.includes('天力') && s.includes('天力'))) matchedSub = s;
-    });
-
+    let matchedSub = matchSub(contractor);
     let penaltyAmount = 0;
     if (row.penalty_amount) penaltyAmount = parseFloat(String(row.penalty_amount).replace(/[^\d.]/g,'')) || 0;
-
     const issueCat = row.issue_category || '';
     let type = '缺點', dc = 'Condition';
     if (issueCat.includes('罰單')) type = '罰單';
     else if (issueCat.includes('優點')) { type = '優點'; dc = 'Positive'; }
     if (issueCat.includes('不安全行為')) dc = 'Action';
     if (issueCat.includes('不安全條件')) dc = 'Condition';
-
     const defectType = row.defect_type || '';
     const desc = row.description || '';
     const isClosed = row.is_closed === '是' || row.is_closed === true || String(row.is_closed).includes('是');
-
-    g.allData.push({
-      id: 'GOV-'+idx,
-      date: row.issue_date || '',
-      type: type,
-      defectCategory: dc,
-      subcontractor: matchedSub || contractor,
-      category: defectType,
-      location: row.area || '',
-      description: desc,
-      solved: isClosed,
-      lsr: false,
-      penaltyAmount: penaltyAmount,
-      docNo: row.doc_no || '',
-      regulation: row.regulation || '',
-      issuer: row.issuer || '',
-      dueDate: row.due_date || '',
-      source: 'Gov',
-      isPTWViolation: false
-    });
+    g.allData.push({ id: 'GOV-'+idx, date: row.issue_date || '', type: type, defectCategory: dc, subcontractor: matchedSub || contractor, category: defectType, location: row.area || '', description: desc, solved: isClosed, lsr: false, penaltyAmount: penaltyAmount, docNo: row.doc_no || '', regulation: row.regulation || '', issuer: row.issuer || '', dueDate: row.due_date || '', source: 'Gov', isPTWViolation: false });
   });
 
-  // ── Process Manpower (pre-parsed array of {company, dailyData}) ──
+  // NMDC NCR — kept SEPARATE; no 危害種類, so excluded from hazard analysis
+  ncrRows.forEach((row, idx) => {
+    const closeDate = row.close_date || '';
+    g.allData.push({ id: 'NMDCNCR-'+idx, date: row.issue_date || row.defect_date || '', type: '缺點', defectCategory: 'NMDC_NCR', subcontractor: mapNmdcSubcon(row.subcon), category: '', location: row.location || '', description: row.description || '', solved: !!closeDate, lsr: false, ncrNo: row.ncr_no || '', defectDate: row.defect_date || '', dueDate: row.due_date || '', preparer: row.preparer || '', closeDate: closeDate, closeRecipient: row.close_recipient || '', source: 'NMDC NCR', isPTWViolation: false });
+  });
+
+  // NMDC Penalty — kept SEPARATE
+  penRows.forEach((row, idx) => {
+    let amt = 0;
+    if (row.amount) amt = parseFloat(String(row.amount).replace(/[^\d.]/g,'')) || 0;
+    const revokedRaw = String(row.revoked || '').trim().toLowerCase();
+    const revoked = revokedRaw === 'v' || revokedRaw === 'true' || revokedRaw.includes('是') || revokedRaw.includes('撤');
+    g.allData.push({ id: 'NMDCPEN-'+idx, date: row.issue_date || '', type: '罰單', defectCategory: 'NMDC_Penalty', subcontractor: mapNmdcSubcon(row.subcon), category: '', location: '', description: row.violation || '', solved: false, lsr: false, penaltyAmount: amt, penaltyNo: row.penalty_no || '', reporter: row.reporter || '', clauses: row.clauses || '', revoked: revoked, source: 'NMDC Penalty', isPTWViolation: false });
+  });
+
   mpData.forEach(item => {
     const cname = item.company;
     if (!cname) return;
@@ -810,50 +601,30 @@ function processSheetData(socRows, tpcRows, mpData, govRows) {
     const isTotal = cname === 'TOTAL';
     const isTotalHours = cname === 'TOTAL HOURS';
     const isIncident = INCIDENT_KEYS.includes(cname);
-
     Object.entries(item.dailyData).forEach(([dateStr, cnt]) => {
-      if (isTBM) {
-        g.tbmByDate[dateStr] = (g.tbmByDate[dateStr]||0) + cnt;
-      } else if (isTotalHours) {
-        g.totalHoursByDate[dateStr] = cnt;
-      } else if (isIncident) {
-        if (!g.incidentData[cname]) g.incidentData[cname] = {};
-        g.incidentData[cname][dateStr] = cnt;
-      } else if (isTotal) {
-        g.totalPeopleByDate[dateStr] = cnt;
-      } else {
-        if (cnt > 0) {
-          g.manpowerData.push({ company: cname, date: dateStr, count: cnt });
-          if (!g.workingDaysByDate[dateStr]) g.workingDaysByDate[dateStr] = 0;
-          g.workingDaysByDate[dateStr] += cnt;
-        }
-      }
+      if (isTBM) g.tbmByDate[dateStr] = (g.tbmByDate[dateStr]||0) + cnt;
+      else if (isTotalHours) g.totalHoursByDate[dateStr] = cnt;
+      else if (isIncident) { if (!g.incidentData[cname]) g.incidentData[cname] = {}; g.incidentData[cname][dateStr] = cnt; }
+      else if (isTotal) g.totalPeopleByDate[dateStr] = cnt;
+      else { if (cnt > 0) { g.manpowerData.push({ company: cname, date: dateStr, count: cnt }); if (!g.workingDaysByDate[dateStr]) g.workingDaysByDate[dateStr] = 0; g.workingDaysByDate[dateStr] += cnt; } }
     });
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
-// KPI CALCULATION ENGINE (ported from v2.4)
-// ═══════════════════════════════════════════════════════════════
 function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   if (!sheetLoaded) return getFallbackKPI();
   const g = gsheetData;
 
-  // Base filter
+  // base restricted to SAFETY_SOURCES so NMDC Penalty/NCR never mix in
   let base = g.allData.filter(item =>
     item.date >= startDate && item.date <= endDate &&
-    (source === 'All' || item.source === source) &&
+    (source === 'All' ? SAFETY_SOURCES.includes(item.source) : item.source === source) &&
     (subFilter === 'All' || item.subcontractor === subFilter) &&
     (locFilter === 'All' || item.location === locFilter)
   );
 
   const allDefects = base.filter(d => d.type === '缺點' || d.type === '罰單');
-  const condDef = allDefects.filter(d => d.defectCategory === 'Condition');
-  const actDef  = allDefects.filter(d => d.defectCategory === 'Action');
-
-  let filtered = dcFilter && dcFilter !== 'All'
-    ? base.filter(i => i.type === '優點' || i.defectCategory === dcFilter)
-    : base;
+  let filtered = dcFilter && dcFilter !== 'All' ? base.filter(i => i.type === '優點' || i.defectCategory === dcFilter) : base;
 
   const defects   = filtered.filter(d => d.type === '缺點' || d.type === '罰單');
   const positives = filtered.filter(d => d.type === '優點');
@@ -865,200 +636,115 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   const govPen    = filtered.filter(d => d.source === 'Gov' && (d.type === '罰單' || d.penaltyAmount > 0));
   const lsrViol   = defects.filter(d => d.lsr);
 
-  let totalPenalty = 0;
-  tpcPen.forEach(i => totalPenalty += parseFloat(i.penaltyAmount) || 0);
-  let govPenalty = 0;
-  govPen.forEach(i => govPenalty += parseFloat(i.penaltyAmount) || 0);
-
+  let totalPenalty = 0; tpcPen.forEach(i => totalPenalty += parseFloat(i.penaltyAmount) || 0);
+  let govPenalty = 0;   govPen.forEach(i => govPenalty += parseFloat(i.penaltyAmount) || 0);
   const closureRate = defects.length > 0 ? (closed.length / defects.length) * 100 : 0;
+  const socClosure = socDef.length > 0 ? (socDef.filter(d=>d.solved).length / socDef.length) * 100 : 0;
+  const tpcClosure = tpcDef.length > 0 ? (tpcDef.filter(d=>d.solved).length / tpcDef.length) * 100 : 0;
 
-  // PTW compliance
   const ptwViolations = allDefects.filter(d => d.isPTWViolation).length;
   const ptwRate = allDefects.length > 0 ? Math.max(0, (1 - ptwViolations / allDefects.length) * 100) : 100;
 
-  // TBM rate
   const workDays = Object.keys(g.workingDaysByDate).filter(d => d >= startDate && d <= endDate);
   const tbmDays = workDays.filter(d => (g.tbmByDate[d] || 0) >= 1);
   const tbmRate = workDays.length > 0 ? (tbmDays.length / workDays.length) * 100 : 0;
 
-  // Lagging indicators
   let totalPeople = 0;
-  Object.entries(g.totalPeopleByDate).forEach(([date, val]) => {
-    if (date >= startDate && date <= endDate) totalPeople += val;
-  });
+  Object.entries(g.totalPeopleByDate).forEach(([date, val]) => { if (date >= startDate && date <= endDate) totalPeople += val; });
   const totalHours = totalPeople * 8;
-  function sumIncident(key) {
-    if (!g.incidentData[key]) return 0;
-    return Object.entries(g.incidentData[key])
-      .filter(([d]) => d >= startDate && d <= endDate)
-      .reduce((s, [, v]) => s + v, 0);
-  }
-  const rec  = sumIncident('Recordable incidents');
-  const lti  = sumIncident('LTI cases');
-  const lost = sumIncident('Lost days');
-  const nm   = sumIncident('Near Miss');
-  const fat  = sumIncident('Fatalities');
-  const mtc  = sumIncident('Medical treatment') + sumIncident('Medical Treatment') + sumIncident('MTC') + sumIncident('醫療處理');
+  function sumIncident(key) { if (!g.incidentData[key]) return 0; return Object.entries(g.incidentData[key]).filter(([d]) => d >= startDate && d <= endDate).reduce((s, [, v]) => s + v, 0); }
+  const rec = sumIncident('Recordable incidents'), lti = sumIncident('LTI cases'), lost = sumIncident('Lost days'), nm = sumIncident('Near Miss'), fat = sumIncident('Fatalities');
+  const mtc = sumIncident('Medical treatment') + sumIncident('Medical Treatment') + sumIncident('MTC') + sumIncident('醫療處理');
   const calcRate = (n, mul) => totalHours > 0 ? (n * mul / totalHours) : 0;
-  const trir     = calcRate(rec, 200000);
-  const ltir     = calcRate(lti, 200000);
-  const severity = calcRate(lost, 200000);
-  const nmRate   = calcRate(nm, 200000);
-  const far      = calcRate(fat, 100000000);
-  const mtcRate  = calcRate(mtc, 200000);
+  const trir = calcRate(rec, 200000), ltir = calcRate(lti, 200000), severity = calcRate(lost, 200000), nmRate = calcRate(nm, 200000), far = calcRate(fat, 100000000), mtcRate = calcRate(mtc, 200000);
 
-  // Category stats
+  // 危害種類 (only SOC/TPC/Gov — base already restricted)
   const catStats = {};
-  defects.forEach(item => {
-    if (!item.category) return;
-    if (!catStats[item.category]) catStats[item.category] = { total:0, condition:0, action:0 };
-    catStats[item.category].total++;
-    if (item.defectCategory === 'Condition') catStats[item.category].condition++;
-    else if (item.defectCategory === 'Action') catStats[item.category].action++;
-  });
-  const socByCategory = Object.entries(catStats)
-    .map(([name, v]) => ({name, value: v.total, condition: v.condition, action: v.action}))
-    .sort((a,b) => b.value - a.value);
+  defects.forEach(item => { if (!item.category) return; if (!catStats[item.category]) catStats[item.category] = { total:0, condition:0, action:0 }; catStats[item.category].total++; if (item.defectCategory === 'Condition') catStats[item.category].condition++; else if (item.defectCategory === 'Action') catStats[item.category].action++; });
+  const socByCategory = Object.entries(catStats).map(([name, v]) => ({name, value: v.total, condition: v.condition, action: v.action})).sort((a,b) => b.value - a.value);
 
-  // Monthly stats
   const monthlyStats = {};
-  base.forEach(item => {
-    if (item.date && (item.type === '缺點' || item.type === '罰單')) {
-      const m = item.date.substring(0,7);
-      if (!monthlyStats[m]) monthlyStats[m] = { soc:0, ncr:0 };
-      if (item.source === 'SOC') monthlyStats[m].soc++;
-      else monthlyStats[m].ncr++;
-    }
-  });
-  const monthly = Object.entries(monthlyStats).sort((a,b)=>a[0].localeCompare(b[0]))
-    .map(([m, v]) => ({m, soc: v.soc, ncr: v.ncr}));
+  base.forEach(item => { if (item.date && (item.type === '缺點' || item.type === '罰單')) { const m = item.date.substring(0,7); if (!monthlyStats[m]) monthlyStats[m] = { soc:0, ncr:0 }; if (item.source === 'SOC') monthlyStats[m].soc++; else monthlyStats[m].ncr++; } });
+  const monthly = Object.entries(monthlyStats).sort((a,b)=>a[0].localeCompare(b[0])).map(([m, v]) => ({m, soc: v.soc, ncr: v.ncr}));
 
-  // Contractor ranking
   const subStats = {};
-  filtered.forEach(item => {
-    if (item.subcontractor && (item.type === '缺點' || item.type === '罰單')) {
-      if (!subStats[item.subcontractor]) subStats[item.subcontractor] = { name:item.subcontractor, soc:0, ncr:0, cond:0, act:0, closed:0, total:0 };
-      subStats[item.subcontractor].total++;
-      if (item.defectCategory === 'Condition') subStats[item.subcontractor].cond++;
-      else if (item.defectCategory === 'Action') subStats[item.subcontractor].act++;
-      if (item.solved) subStats[item.subcontractor].closed++;
-      if (item.source === 'SOC') subStats[item.subcontractor].soc++;
-      else subStats[item.subcontractor].ncr++;
-    }
-  });
-  const contractorRank = Object.values(subStats)
-    .filter(i=>i.total>0)
-    .map(c => ({...c, score: c.total > 0 ? Math.round((c.closed/c.total)*100) : 0}))
-    .sort((a,b) => b.score - a.score);
+  filtered.forEach(item => { if (item.subcontractor && (item.type === '缺點' || item.type === '罰單')) { if (!subStats[item.subcontractor]) subStats[item.subcontractor] = { name:item.subcontractor, soc:0, ncr:0, cond:0, act:0, closed:0, total:0 }; subStats[item.subcontractor].total++; if (item.defectCategory === 'Condition') subStats[item.subcontractor].cond++; else if (item.defectCategory === 'Action') subStats[item.subcontractor].act++; if (item.solved) subStats[item.subcontractor].closed++; if (item.source === 'SOC') subStats[item.subcontractor].soc++; else subStats[item.subcontractor].ncr++; } });
+  const contractorRank = Object.values(subStats).filter(i=>i.total>0).map(c => ({...c, score: c.total > 0 ? Math.round((c.closed/c.total)*100) : 0})).sort((a,b) => b.score - a.score);
 
-  // Positive (優點) ranking
   const posStats = {};
-  filtered.forEach(item => {
-    if (item.subcontractor && item.type === '優點') {
-      if (!posStats[item.subcontractor]) posStats[item.subcontractor] = { name:item.subcontractor, count:0, soc:0, tpc:0 };
-      posStats[item.subcontractor].count++;
-      if (item.source === 'SOC') posStats[item.subcontractor].soc++;
-      else posStats[item.subcontractor].tpc++;
-    }
-  });
+  filtered.forEach(item => { if (item.subcontractor && item.type === '優點') { if (!posStats[item.subcontractor]) posStats[item.subcontractor] = { name:item.subcontractor, count:0, soc:0, tpc:0 }; posStats[item.subcontractor].count++; if (item.source === 'SOC') posStats[item.subcontractor].soc++; else posStats[item.subcontractor].tpc++; } });
   const positiveRank = Object.values(posStats).sort((a,b) => b.count - a.count);
 
-  // Manpower stats
   const mpFiltered = g.manpowerData.filter(i => i.date >= startDate && i.date <= endDate);
   const mpByCompany = {};
-  mpFiltered.forEach(item => {
-    if (!mpByCompany[item.company]) mpByCompany[item.company] = {name:item.company, total:0, max:0, days:new Set()};
-    mpByCompany[item.company].total += item.count;
-    mpByCompany[item.company].max = Math.max(mpByCompany[item.company].max, item.count);
-    mpByCompany[item.company].days.add(item.date);
-  });
-  const manpower = Object.values(mpByCompany).map(c => ({
-    name: c.name,
-    avg: c.days.size > 0 ? Math.round(c.total / c.days.size) : 0,
-    max: c.max,
-    hours: c.total * 8
-  })).sort((a,b) => b.hours - a.hours);
+  mpFiltered.forEach(item => { if (!mpByCompany[item.company]) mpByCompany[item.company] = {name:item.company, total:0, max:0, days:new Set()}; mpByCompany[item.company].total += item.count; mpByCompany[item.company].max = Math.max(mpByCompany[item.company].max, item.count); mpByCompany[item.company].days.add(item.date); });
+  const manpower = Object.values(mpByCompany).map(c => ({ name: c.name, avg: c.days.size > 0 ? Math.round(c.total / c.days.size) : 0, max: c.max, hours: c.total * 8 })).sort((a,b) => b.hours - a.hours);
 
-  // Condition/Action open/closed counts — use ALL data (no date filter)
-  // to match the Deficiency page which shows all open items regardless of date range
-  const allCondDef = g.allData.filter(d =>
-    (d.type === '缺點' || d.type === '罰單') &&
-    d.defectCategory === 'Condition' &&
-    (source === 'All' || d.source === source) &&
-    (subFilter === 'All' || d.subcontractor === subFilter) &&
-    (locFilter === 'All' || d.location === locFilter)
-  );
-  const allActDef = g.allData.filter(d =>
-    (d.type === '缺點' || d.type === '罰單') &&
-    d.defectCategory === 'Action' &&
-    (source === 'All' || d.source === source) &&
-    (subFilter === 'All' || d.subcontractor === subFilter) &&
-    (locFilter === 'All' || d.location === locFilter)
-  );
-  const openCond   = allCondDef.filter(d => !d.solved).length;
-  const openAct    = allActDef.filter(d  => !d.solved).length;
-  const closedCond = allCondDef.filter(d => d.solved).length;
-  const closedAct  = allActDef.filter(d  => d.solved).length;
+  const inScope = d => (source === 'All' ? SAFETY_SOURCES.includes(d.source) : d.source === source) && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter);
+  const allCondDef = g.allData.filter(d => (d.type === '缺點' || d.type === '罰單') && d.defectCategory === 'Condition' && inScope(d));
+  const allActDef  = g.allData.filter(d => (d.type === '缺點' || d.type === '罰單') && d.defectCategory === 'Action' && inScope(d));
+  const openCond = allCondDef.filter(d => !d.solved).length, openAct = allActDef.filter(d => !d.solved).length;
+  const closedCond = allCondDef.filter(d => d.solved).length, closedAct = allActDef.filter(d => d.solved).length;
+
+  // NMDC computations — SEPARATE; respects date+sub+loc, ignores the source dropdown
+  const nmdcNcrBase = g.allData.filter(d => d.source === 'NMDC NCR' && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter));
+  const nmdcPenBase = g.allData.filter(d => d.source === 'NMDC Penalty' && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter));
+  const nmdcNcrTotal = nmdcNcrBase.length;
+  const nmdcNcrClosed = nmdcNcrBase.filter(d => d.solved).length;
+  const nmdcNcrOpen = nmdcNcrTotal - nmdcNcrClosed;
+  const nmdcNcrClosure = nmdcNcrTotal > 0 ? (nmdcNcrClosed / nmdcNcrTotal) * 100 : 0;
+  const nmdcPenTotal = nmdcPenBase.length;
+  const nmdcPenRevoked = nmdcPenBase.filter(d => d.revoked).length;
+  let nmdcPenAmount = 0, nmdcPenAmountAll = 0;
+  nmdcPenBase.forEach(d => { const a = parseFloat(d.penaltyAmount) || 0; nmdcPenAmountAll += a; if (!d.revoked) nmdcPenAmount += a; });
+  const nmdcPenList = nmdcPenBase.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const nmdcNcrList = nmdcNcrBase.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
   return {
     summary: {
       totalSOC: socDef.length, totalNCR: tpcDef.length, totalGov: govDef.length,
-      totalDefects: defects.length, positives: positives.length,
-      closureRate: closureRate, manpower: totalPeople,
-      safeHours: totalHours,
+      totalDefects: defects.length, positives: positives.length, closureRate: closureRate,
+      socClosure: socClosure, tpcClosure: tpcClosure,
+      manpower: totalPeople, safeHours: totalHours,
       trir, ltir, far, nearMissRate: nmRate, severityRate: severity, mtcRate,
-      penaltyAmount: totalPenalty,
-      govPenalty: govPenalty,
-      conditionOpen: openCond, conditionClosed: closedCond,
-      actionOpen: openAct, actionClosed: closedAct,
-      lsrViolations: lsrViol.length,
-      rec, lti, lost, nm, fat, mtc, totalPeople, totalHours
+      penaltyAmount: totalPenalty, govPenalty: govPenalty,
+      conditionOpen: openCond, conditionClosed: closedCond, actionOpen: openAct, actionClosed: closedAct,
+      lsrViolations: lsrViol.length, rec, lti, lost, nm, fat, mtc, totalPeople, totalHours,
+      nmdcNcrTotal, nmdcNcrClosed, nmdcNcrOpen, nmdcNcrClosure,
+      nmdcPenTotal, nmdcPenRevoked, nmdcPenAmount, nmdcPenAmountAll
     },
     ncrClosure: closureRate, ptwCompliance: ptwRate, tbmRate: tbmRate,
     socByCategory, monthly, contractorRank, positiveRank, manpower,
-    // Monthly manpower by location (台中/通霄)
+    nmdcPenList, nmdcNcrList,
     monthlyManpower: calcMonthlyManpowerByLocation(startDate, endDate)
   };
 }
 
 function calcMonthlyManpowerByLocation(startDate, endDate) {
   const g = gsheetData;
-  const monthData = {}; // month → {taichung, tongxiao}
+  const monthData = {};
   g.manpowerData.forEach(item => {
     if (item.date < startDate || item.date > endDate) return;
     const m = item.date.substring(0, 7);
     if (!monthData[m]) monthData[m] = { taichung: 0, tongxiao: 0, unassigned: 0 };
     const cn = (item.company || '').toLowerCase();
-    if (cn.includes('台中') || cn.includes('taichung')) {
-      monthData[m].taichung += item.count;
-    } else if (cn.includes('通霄') || cn.includes('tongxiao') || cn.includes('tunghsiao')) {
-      monthData[m].tongxiao += item.count;
-    } else {
-      monthData[m].unassigned += item.count;
-    }
+    if (cn.includes('台中') || cn.includes('taichung')) monthData[m].taichung += item.count;
+    else if (cn.includes('通霄') || cn.includes('tongxiao') || cn.includes('tunghsiao')) monthData[m].tongxiao += item.count;
+    else monthData[m].unassigned += item.count;
   });
-  // Split unassigned 50/50 rounded
-  return Object.entries(monthData).sort((a,b)=>a[0].localeCompare(b[0])).map(([m, v]) => {
-    const halfUp = Math.ceil(v.unassigned / 2);
-    const halfDown = Math.floor(v.unassigned / 2);
-    return { month: m, taichung: v.taichung + halfUp, tongxiao: v.tongxiao + halfDown };
-  });
+  return Object.entries(monthData).sort((a,b)=>a[0].localeCompare(b[0])).map(([m, v]) => { const halfUp = Math.ceil(v.unassigned / 2); const halfDown = Math.floor(v.unassigned / 2); return { month: m, taichung: v.taichung + halfUp, tongxiao: v.tongxiao + halfDown }; });
 }
 
 function getFallbackKPI() {
   return {
-    summary:{totalSOC:0,totalNCR:0,totalGov:0,totalDefects:0,positives:0,closureRate:0,manpower:0,safeHours:0,trir:0,ltir:0,far:0,nearMissRate:0,severityRate:0,mtcRate:0,penaltyAmount:0,govPenalty:0,conditionOpen:0,conditionClosed:0,actionOpen:0,actionClosed:0,lsrViolations:0,rec:0,lti:0,lost:0,nm:0,fat:0,mtc:0,totalPeople:0,totalHours:0},
-    ncrClosure:0,ptwCompliance:0,tbmRate:0,
-    socByCategory:[],monthly:[],contractorRank:[],positiveRank:[],manpower:[],monthlyManpower:[]
+    summary:{totalSOC:0,totalNCR:0,totalGov:0,totalDefects:0,positives:0,closureRate:0,socClosure:0,tpcClosure:0,manpower:0,safeHours:0,trir:0,ltir:0,far:0,nearMissRate:0,severityRate:0,mtcRate:0,penaltyAmount:0,govPenalty:0,conditionOpen:0,conditionClosed:0,actionOpen:0,actionClosed:0,lsrViolations:0,rec:0,lti:0,lost:0,nm:0,fat:0,mtc:0,totalPeople:0,totalHours:0,nmdcNcrTotal:0,nmdcNcrClosed:0,nmdcNcrOpen:0,nmdcNcrClosure:0,nmdcPenTotal:0,nmdcPenRevoked:0,nmdcPenAmount:0,nmdcPenAmountAll:0},
+    ncrClosure:0,ptwCompliance:0,tbmRate:0,socByCategory:[],monthly:[],contractorRank:[],positiveRank:[],manpower:[],monthlyManpower:[],nmdcPenList:[],nmdcNcrList:[]
   };
 }
 
 function getDateRange() {
   if (sheetLoaded) {
-    const allDates = [
-      ...gsheetData.allData.map(d=>d.date),
-      ...Object.keys(gsheetData.totalPeopleByDate)
-    ].filter(d => d && d.length >= 10).sort();
+    const allDates = [...gsheetData.allData.map(d=>d.date), ...Object.keys(gsheetData.totalPeopleByDate)].filter(d => d && d.length >= 10).sort();
     if (allDates.length > 0) return { start: allDates[0], end: allDates[allDates.length-1] };
   }
   return { start: '2025-04-01', end: new Date().toISOString().slice(0,10) };
@@ -1066,14 +752,11 @@ function getDateRange() {
 
 const NAV = [
   {id:"home",label:"首頁 Home",icon:"🏠"},{id:"dashboard",label:"儀表板 Dashboard",icon:"📊"},
-  {id:"deficiency",label:"缺失管理 Deficiency",icon:"⚠️"},{id:"documents",label:"文件管理 Documents",icon:"📄"},
+  {id:"deficiency",label:"缺失管理 Deficiency",icon:"⚠️"},
   {id:"tools",label:"工具 Tools",icon:"🔧"},{id:"tracking",label:"追蹤事項 Tracking",icon:"📋"},
   {id:"schedule",label:"班表 Schedule",icon:"📅"}
 ];
 
-// ═══════════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════════
 function autoSeverity(desc,cat){
   const s=(desc+" "+cat).toLowerCase();
   if(SEV_KW.critical.some(k=>s.includes(k)))return"critical";
@@ -1086,11 +769,7 @@ function saveState(){try{localStorage.setItem('safety_es',JSON.stringify(state))
 function loadState(){try{const s=localStorage.getItem('safety_es');if(s){const d=JSON.parse(s);Object.assign(state,d);state.def.forEach(x=>{if(!x.severity)x.severity=autoSeverity(x.description,x.category)});if(state.customTeam)TEAM=state.customTeam;}}catch{}}
 function getTeam(){return state.customTeam||TEAM}
 function addTeamMember(){const n=prompt('輸入新人員姓名');if(!n)return;if(!state.customTeam)state.customTeam=[...TEAM];state.customTeam.push(n);TEAM=state.customTeam;saveState();toast('已新增 '+n);renderPage(currentPage)}
-function refreshData(){
-  sheetLoaded=false;sheetLoadError=false;
-  document.getElementById('sheetStatus').innerHTML='<span style="color:var(--amber);animation:pulse 1s infinite">● 重新載入中...</span>';
-  loadGoogleSheetData();
-}
+function refreshData(){ sheetLoaded=false;sheetLoadError=false; document.getElementById('sheetStatus').innerHTML='<span style="color:var(--amber);animation:pulse 1s infinite">● 重新載入中...</span>'; loadGoogleSheetData(); }
 function toast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;setTimeout(()=>t.classList.remove('show'),2800)}
 function openModal(id){document.getElementById(id).classList.add('show')}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
@@ -1099,56 +778,26 @@ function today(){return new Date().toISOString().slice(0,10)}
 function isOverdue(d){return d.status!=='closed'&&new Date(d.dueDate)<new Date()}
 function optionsHtml(arr,blank){return (blank?'<option value="">--選擇--</option>':'')+arr.map(a=>`<option value="${a}">${a}</option>`).join('')}
 
-// ═══════════════════════════════════════════════════════════════
-// NAVIGATION
-// ═══════════════════════════════════════════════════════════════
-function buildNav(){
-  document.getElementById('navContainer').innerHTML=NAV.map(n=>
-    `<button class="nav-btn${n.id===currentPage?' active':''}" onclick="goPage('${n.id}')">${n.icon} <span class="nav-label">${n.label}</span></button>`
-  ).join('');
-}
-function goPage(id){
-  currentPage=id;
-  NAV.forEach(n=>{const el=document.getElementById('page-'+n.id);if(el)el.hidden=n.id!==id});
-  document.getElementById('pageTitle').textContent=NAV.find(n=>n.id===id)?.label||'';
-  buildNav();
-  renderPage(id);
-}
+function buildNav(){ document.getElementById('navContainer').innerHTML=NAV.map(n=> `<button class="nav-btn${n.id===currentPage?' active':''}" onclick="goPage('${n.id}')">${n.icon} <span class="nav-label">${n.label}</span></button>` ).join(''); }
+function goPage(id){ currentPage=id; NAV.forEach(n=>{const el=document.getElementById('page-'+n.id);if(el)el.hidden=n.id!==id}); document.getElementById('pageTitle').textContent=NAV.find(n=>n.id===id)?.label||''; buildNav(); renderPage(id); }
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('collapsed')}
-function toggleAdmin(){
-  if(isAdmin){isAdmin=false;updateAdminUI();toast('已登出');renderPage(currentPage);return}
-  openModal('loginModal');
-}
-function doLogin(){
-  const u=document.getElementById('loginUser').value,p=document.getElementById('loginPass').value;
-  if(u==='123'&&p==='123'){isAdmin=true;closeModal('loginModal');updateAdminUI();toast('管理員模式已啟用 ✓');renderPage(currentPage)}
-  else{const e=document.getElementById('loginErr');e.textContent='帳號或密碼錯誤';e.style.display='block'}
-}
-function updateAdminUI(){
-  const btn=document.getElementById('adminBtn');
-  btn.className='admin-btn '+(isAdmin?'on':'off');
-  btn.innerHTML=isAdmin?'🔓 <span class="admin-label">管理員 ON</span>':'🔒 <span class="admin-label">管理員登入</span>';
-  document.getElementById('adminBadge').style.display=isAdmin?'block':'none';
-}
+function toggleAdmin(){ if(isAdmin){isAdmin=false;updateAdminUI();toast('已登出');renderPage(currentPage);return} openModal('loginModal'); }
+function doLogin(){ const u=document.getElementById('loginUser').value,p=document.getElementById('loginPass').value; if(u==='123'&&p==='123'){isAdmin=true;closeModal('loginModal');updateAdminUI();toast('管理員模式已啟用 ✓');renderPage(currentPage)} else{const e=document.getElementById('loginErr');e.textContent='帳號或密碼錯誤';e.style.display='block'} }
+function updateAdminUI(){ const btn=document.getElementById('adminBtn'); btn.className='admin-btn '+(isAdmin?'on':'off'); btn.innerHTML=isAdmin?'🔓 <span class="admin-label">管理員 ON</span>':'🔒 <span class="admin-label">管理員登入</span>'; document.getElementById('adminBadge').style.display=isAdmin?'block':'none'; }
 
-// ═══════════════════════════════════════════════════════════════
-// RENDER PAGES
-// ═══════════════════════════════════════════════════════════════
 function renderPage(id){
   switch(id){
     case'home':renderHome();break;case'dashboard':renderDashboard();break;
-    case'deficiency':renderDeficiency();break;case'documents':renderDocuments();break;
+    case'deficiency':renderDeficiency();break;
     case'tools':renderTools();break;case'tracking':renderTracking();break;
     case'schedule':renderSchedule();break;
   }
 }
 
-// ─── HOME ────────────────────────────────────────────────────
 function renderHome(){
   const range = getDateRange();
   const kpi = calcKPI(range.start, range.end, 'All', 'All', 'All', 'All');
   const s = kpi.summary;
-  // Open defects from live Sheet data
   const liveOpenSOC = sheetLoaded ? gsheetData.allData.filter(d => d.source === 'SOC' && d.type !== '優點' && !d.solved).length : 0;
   const liveOpenTPC = sheetLoaded ? gsheetData.allData.filter(d => d.source === 'TPC NCR' && d.type !== '優點' && !d.solved).length : 0;
   const liveOpenGov = sheetLoaded ? gsheetData.allData.filter(d => d.source === 'Gov' && d.type !== '優點' && !d.solved).length : 0;
@@ -1202,7 +851,6 @@ function renderHome(){
       </table></div>
       <div style="padding:0 16px 16px;height:200px"><canvas id="locMpChart"></canvas></div>
     </div>` : ''}`;
-  // Location manpower chart
   if(sheetLoaded && kpi.monthlyManpower.length > 0) {
     setTimeout(()=>{
       const lmc=document.getElementById('locMpChart');
@@ -1227,7 +875,6 @@ function gaugeCard(label,value,max,color){
   </svg><div class="gauge-label">${label}</div></div>`;
 }
 
-// ─── DASHBOARD ───────────────────────────────────────────────
 let trendChart=null,catChart=null;
 function renderDashboard(){
   const range = getDateRange();
@@ -1236,23 +883,22 @@ function renderDashboard(){
   const srcVal = document.getElementById('dashSource')?.value || 'All';
   const subVal = document.getElementById('dashSub')?.value || 'All';
   const locVal = document.getElementById('dashLoc')?.value || 'All';
-
   const kpi = calcKPI(startVal, endVal, srcVal, subVal, locVal, 'All');
   const s = kpi.summary;
   const el=document.getElementById('page-dashboard');
+  const todayStr = new Date().toISOString().slice(0,10);
 
-  // Build subcontractor & location options from live data
   let subOptions = '<option value="All">全部</option>';
   let locOptions = '<option value="All">全部</option>';
   if (sheetLoaded) {
     const subs = new Set(), locs = new Set();
     gsheetData.allData.forEach(d => { if(d.subcontractor) subs.add(d.subcontractor); if(d.location) locs.add(d.location); });
-    Array.from(subs).sort().forEach(s => subOptions += `<option value="${s}"${s===subVal?' selected':''}>${s}</option>`);
+    Array.from(subs).sort().forEach(x => subOptions += `<option value="${x}"${x===subVal?' selected':''}>${x}</option>`);
     Array.from(locs).sort().forEach(l => locOptions += `<option value="${l}"${l===locVal?' selected':''}>${l}</option>`);
   }
 
   el.innerHTML=`
-    <div class="card filter-bar" style="margin-bottom:20px">
+    <div class="card filter-bar" style="margin-bottom:14px">
       <span style="font-size:12px;font-weight:700;color:var(--amber)">📊 篩選條件</span>
       <div style="display:flex;align-items:center;gap:8px"><label>起始</label><input type="date" class="inp" id="dashStart" value="${startVal}" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"></div>
       <div style="display:flex;align-items:center;gap:8px"><label>結束</label><input type="date" class="inp" id="dashEnd" value="${endVal}" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"></div>
@@ -1261,9 +907,10 @@ function renderDashboard(){
       <div style="display:flex;align-items:center;gap:8px"><label>區域</label><select class="sel" id="dashLoc" style="width:130px;padding:6px 10px;font-size:12px" onchange="renderDashboard()">${locOptions}</select></div>
       ${sheetLoaded ? badge('LIVE 🟢','var(--green)') : badge('離線','var(--textMut)')}
     </div>
+    <div style="font-size:11px;color:var(--textMut);margin:0 0 16px">ℹ️ 上方「來源／危害種類／缺失統計」僅涵蓋 <b style="color:var(--textSec)">SOC · TPC NCR · 政府機關</b>。<b style="color:var(--amber)">NMDC Penalty / NMDC NCR</b> 為 NMDC 內部開立，獨立統計於下方專區，不與上述混算。</div>
     ${!sheetLoaded ? '<div style="padding:16px;background:var(--amberBg);border:1px solid var(--amber);border-radius:8px;margin-bottom:16px;font-size:12px;color:var(--amber)">⚠️ Google Sheet 尚未連線，顯示的為即時計算結果。若資料為零請確認 Sheet 已設定為公開。</div>' : ''}
     <div class="grid grid-3" style="margin-bottom:22px">
-      ${[{l:"NCR結案率",v:kpi.ncrClosure,t:[80,95]},{l:"PTW合規率",v:kpi.ptwCompliance,t:[80,95]},{l:"TBM執行率",v:kpi.tbmRate,t:[90,98]}].map(g=>`
+      ${[{l:"SOC 結案率",v:s.socClosure,t:[80,95]},{l:"TPC NCR 結案率",v:s.tpcClosure,t:[80,95]},{l:"NMDC NCR 結案率",v:s.nmdcNcrClosure,t:[80,95]}].map(g=>`
         <div class="card" style="padding:20px;text-align:center">${gaugeCard(g.l,g.v,100,g.v>=g.t[1]?'var(--green)':g.v>=g.t[0]?'var(--amber)':'var(--red)').replace(/<\/?div[^>]*>/g,'')}
         ${badge(g.v>=g.t[1]?'✅ 優秀':g.v>=g.t[0]?'⚠️ 注意':'🔴 需改善',g.v>=g.t[1]?'var(--green)':g.v>=g.t[0]?'var(--amber)':'var(--red)')}</div>`).join('')}
     </div>
@@ -1295,6 +942,7 @@ function renderDashboard(){
         </div>
       </div>
     </div>
+    <div style="font-size:11px;font-weight:700;color:var(--textSec);margin:0 0 8px">缺失統計 — SOC / TPC NCR / 政府機關</div>
     <div class="grid grid-6" style="gap:0;margin-bottom:22px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">
       ${[{l:"SOC缺失",v:s.totalSOC,c:"var(--blue)"},{l:"TPC缺失",v:s.totalNCR,c:"var(--purple)"},{l:"政府機關",v:s.totalGov||0,c:"var(--cyan)"},{l:"總缺失",v:s.totalDefects,c:"var(--red)"},{l:"優點",v:s.positives,c:"var(--green)"},{l:"結案率",v:s.closureRate.toFixed(1)+'%',c:"var(--cyan)"}].map((x,i)=>`
         <div style="padding:18px 10px;text-align:center;border-right:${i<5?'1px solid var(--border)':'none'}">
@@ -1312,13 +960,46 @@ function renderDashboard(){
         <span style="font-size:18px;font-weight:800;color:var(--red);font-family:var(--mono)">NT$${(s.govPenalty||0).toLocaleString()}</span>
       </div>
     </div>
+
+    <div class="card" style="margin-bottom:22px;border-left:3px solid var(--amber)">
+      <div class="card-head"><h3>🏢 NMDC 內部開立 (Penalty &amp; NCR)</h3><span style="font-size:10px;color:var(--textMut)">NMDC 自行對承攬商開立 · 獨立統計</span></div>
+      <div class="grid grid-5" style="gap:0">
+        ${[
+          {l:"NMDC 罰款件數",v:s.nmdcPenTotal||0,c:'var(--amber)',sub:s.nmdcPenRevoked?`含 ${s.nmdcPenRevoked} 筆已撤銷`:'無撤銷'},
+          {l:"NMDC 罰款金額",v:'NT$'+((s.nmdcPenAmount||0).toLocaleString()),c:'var(--red)',sub:`含撤銷共 NT$${(s.nmdcPenAmountAll||0).toLocaleString()}`},
+          {l:"NMDC NCR 件數",v:s.nmdcNcrTotal||0,c:'var(--blue)',sub:''},
+          {l:"NMDC NCR 未結案",v:s.nmdcNcrOpen||0,c:'var(--red)',sub:`已結 ${s.nmdcNcrClosed||0}`},
+          {l:"NMDC NCR 結案率",v:(s.nmdcNcrClosure||0).toFixed(1)+'%',c:(s.nmdcNcrClosure>=80?'var(--green)':s.nmdcNcrClosure>=60?'var(--amber)':'var(--red)'),sub:''}
+        ].map((x,i)=>`
+          <div style="padding:18px 10px;text-align:center;border-right:${i<4?'1px solid var(--border)':'none'};border-top:3px solid ${x.c}">
+            <div style="font-size:10px;color:var(--textMut);font-weight:600;margin-bottom:6px">${x.l}</div>
+            <div style="font-size:18px;font-weight:800;color:${x.c};font-family:var(--mono)">${x.v}</div>
+            ${x.sub?`<div style="font-size:9px;color:var(--textMut);margin-top:4px">${x.sub}</div>`:''}
+          </div>`).join('')}
+      </div>
+      <div style="border-top:1px solid var(--border)">
+        <div style="padding:10px 16px;font-size:11px;font-weight:700;color:var(--amber)">⚠️ NMDC 罰款明細 (${(kpi.nmdcPenList||[]).length}) <span style="color:var(--textMut);font-weight:500">· NCR 明細請見「缺失管理」頁</span></div>
+        <div style="max-height:360px;overflow:auto"><table class="tbl">
+          <thead><tr><th>編號</th><th>日期</th><th>承攬商</th><th>違規事實</th><th>金額</th></tr></thead>
+          <tbody>${(kpi.nmdcPenList||[]).length>0?kpi.nmdcPenList.map(d=>`
+            <tr style="${d.revoked?'opacity:.5':''}">
+              <td style="font-family:var(--mono);font-size:10px;color:var(--amber)">${d.penaltyNo||'-'}${d.revoked?' <span style="color:var(--textMut)">(撤銷)</span>':''}</td>
+              <td style="white-space:nowrap">${d.date||'-'}</td>
+              <td style="font-weight:600">${d.subcontractor||'-'}</td>
+              <td style="max-width:460px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.description||'').replace(/"/g,'&quot;')}">${d.description||'-'}</td>
+              <td style="font-family:var(--mono);color:${d.revoked?'var(--textMut)':'var(--red)'};text-decoration:${d.revoked?'line-through':'none'}">${d.penaltyAmount?'NT$'+d.penaltyAmount.toLocaleString():'-'}</td>
+            </tr>`).join(''):'<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--textMut)">無資料</td></tr>'}</tbody>
+        </table></div>
+      </div>
+    </div>
+
     <div class="grid grid-2" style="margin-bottom:22px">
-      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢</div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
-      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類 Top 8</div><div style="height:220px"><canvas id="catCanvas"></canvas></div></div>
+      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢 <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov)</span></div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
+      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類 Top 8 <span style="font-size:10px;color:var(--textMut);font-weight:500">(僅 SOC / TPC NCR / Gov)</span></div><div style="height:220px"><canvas id="catCanvas"></canvas></div></div>
     </div>
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card">
-        <div class="card-head"><h3>🏆 承包商績效（缺失）</h3></div>
+        <div class="card-head"><h3>🏆 承包商績效（缺失）<span style="font-size:10px;color:var(--textMut);font-weight:500;margin-left:4px">SOC/TPC/Gov</span></h3></div>
         <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>排名</th><th>承包商</th><th>條件</th><th>行為</th><th>合計</th><th>結案率</th></tr></thead>
         <tbody>${kpi.contractorRank.length > 0 ? kpi.contractorRank.map((c,i)=>{const r=c.total>0?Math.round((c.closed/c.total)*100):0;return`
           <tr><td style="font-weight:700;color:${i===0?'var(--amber)':'var(--text)'}">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</td>
@@ -1338,7 +1019,7 @@ function renderDashboard(){
       </div>
     </div>
     <div class="card" style="margin-bottom:22px">
-      <div class="card-head"><h3>📋 缺失改善追蹤</h3></div>
+      <div class="card-head"><h3>📋 缺失改善追蹤 <span style="font-size:10px;color:var(--textMut);font-weight:500;margin-left:4px">SOC/TPC/Gov</span></h3></div>
       <div class="grid grid-4" style="padding:16px;gap:10px">
         <div style="text-align:center;padding:12px;background:var(--greenBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">條件已結案</div><div style="font-size:24px;font-weight:800;color:var(--green);font-family:var(--mono)">${s.conditionClosed}</div></div>
         <div style="text-align:center;padding:12px;background:var(--amberBg);border-radius:8px"><div style="font-size:10px;color:var(--textMut);margin-bottom:4px">條件未結案</div><div style="font-size:24px;font-weight:800;color:var(--amber);font-family:var(--mono)">${s.conditionOpen}</div></div>
@@ -1347,7 +1028,6 @@ function renderDashboard(){
       </div>
     </div>`;
 
-  // Charts
   setTimeout(()=>{
     if(trendChart)trendChart.destroy();if(catChart)catChart.destroy();
     const tc=document.getElementById('trendCanvas');const cc=document.getElementById('catCanvas');
@@ -1358,30 +1038,17 @@ function renderDashboard(){
     const totalCats = kpi.socByCategory.reduce((s,c)=>s+c.value,0);
     if(cc && topCats.length > 0) catChart=new Chart(cc,{
       type:'bar',
-      data:{
-        labels:topCats.map(c=>c.name),
-        datasets:[{data:topCats.map(c=>c.value),backgroundColor:PAL,borderRadius:4}]
-      },
+      data:{ labels:topCats.map(c=>c.name), datasets:[{data:topCats.map(c=>c.value),backgroundColor:PAL,borderRadius:4}] },
       options:{
         responsive:true,maintainAspectRatio:false,indexAxis:'y',
         layout:{padding:{right:60}},
-        plugins:{
-          legend:{display:false},
-          tooltip:{callbacks:{label:(ctx)=>{const pct=totalCats>0?(ctx.parsed.x/totalCats*100).toFixed(1):0;return `${ctx.parsed.x} 件 (${pct}%)`;}}}
-        },
-        scales:{
-          x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},
-          y:{ticks:{color:'#8b95a8',font:{size:10}},grid:{display:false}}
-        },
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>{const pct=totalCats>0?(ctx.parsed.x/totalCats*100).toFixed(1):0;return `${ctx.parsed.x} 件 (${pct}%)`;}}} },
+        scales:{ x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}}, y:{ticks:{color:'#8b95a8',font:{size:10}},grid:{display:false}} },
         animation:{onComplete:function(){
           const chart=this; const ctx=chart.ctx;
           ctx.font='bold 10px DM Sans, sans-serif';
           ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#e8edf5';
-          chart.data.datasets[0].data.forEach((value, idx) => {
-            const meta = chart.getDatasetMeta(0).data[idx];
-            const pct = totalCats > 0 ? (value/totalCats*100).toFixed(1) : 0;
-            ctx.fillText(`${value} (${pct}%)`, meta.x + 6, meta.y);
-          });
+          chart.data.datasets[0].data.forEach((value, idx) => { const meta = chart.getDatasetMeta(0).data[idx]; const pct = totalCats > 0 ? (value/totalCats*100).toFixed(1) : 0; ctx.fillText(`${value} (${pct}%)`, meta.x + 6, meta.y); });
         }}
       }
     });
@@ -1389,14 +1056,10 @@ function renderDashboard(){
   },100);
 }
 
-// ─── DEFICIENCY ──────────────────────────────────────────────
-let defTab = 'soc'; // 'soc' / 'tpc' / 'gov'
+let defTab = 'soc';
 function renderDeficiency(){
   const el=document.getElementById('page-deficiency');
-  if (!sheetLoaded) {
-    el.innerHTML='<div style="padding:40px;text-align:center;color:var(--textMut)">載入中... 請等待 Google Sheet 連線完成</div>';
-    return;
-  }
+  if (!sheetLoaded) { el.innerHTML='<div style="padding:40px;text-align:center;color:var(--textMut)">載入中... 請等待 Google Sheet 連線完成</div>'; return; }
   const g = gsheetData;
   const todayStr = new Date().toISOString().slice(0,10);
   const socOpen = g.allData.filter(d => d.source === 'SOC' && d.type !== '優點' && !d.solved);
@@ -1404,16 +1067,18 @@ function renderDeficiency(){
   const govOpen = g.allData.filter(d => d.source === 'Gov' && d.type !== '優點' && !d.solved);
   const tpcOverdue = tpcOpen.filter(d => d.dueDate && d.dueDate < todayStr).length;
   const govOverdue = govOpen.filter(d => d.dueDate && d.dueDate < todayStr).length;
-
+  const nmdcOpen = g.allData.filter(d => d.source === 'NMDC NCR' && !d.solved);
+  const nmdcOverdue = nmdcOpen.filter(d => d.dueDate && d.dueDate < todayStr).length;
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="pill-btn" style="background:${defTab==='soc'?'var(--amberBg)':'var(--card)'};color:${defTab==='soc'?'var(--amber)':'var(--textSec)'}" onclick="defTab='soc';renderDeficiency()">SOC 未結案 (${socOpen.length})</button>
         <button class="pill-btn" style="background:${defTab==='tpc'?'var(--blueBg)':'var(--card)'};color:${defTab==='tpc'?'var(--blue)':'var(--textSec)'}" onclick="defTab='tpc';renderDeficiency()">TPC NCR 未結案 (${tpcOpen.length})${tpcOverdue>0?` <span style="color:var(--red);margin-left:4px">⚠️ ${tpcOverdue} 逾期</span>`:''}</button>
         <button class="pill-btn" style="background:${defTab==='gov'?'rgba(6,182,212,.15)':'var(--card)'};color:${defTab==='gov'?'var(--cyan)':'var(--textSec)'}" onclick="defTab='gov';renderDeficiency()">🏛️ 政府機關 未結案 (${govOpen.length})${govOverdue>0?` <span style="color:var(--red);margin-left:4px">⚠️ ${govOverdue} 逾期</span>`:''}</button>
+        <button class="pill-btn" style="background:${defTab==='nmdc'?'var(--amberBg)':'var(--card)'};color:${defTab==='nmdc'?'var(--amber)':'var(--textSec)'}" onclick="defTab='nmdc';renderDeficiency()">🏢 NMDC NCR 未結案 (${nmdcOpen.length})${nmdcOverdue>0?` <span style="color:var(--red);margin-left:4px">⚠️ ${nmdcOverdue} 逾期</span>`:''}</button>
       </div>
     </div>
-    ${defTab === 'soc' ? renderSOCTable(socOpen) : defTab === 'tpc' ? renderTPCTable(tpcOpen) : renderGovTable(govOpen)}`;
+    ${defTab === 'soc' ? renderSOCTable(socOpen) : defTab === 'tpc' ? renderTPCTable(tpcOpen) : defTab === 'nmdc' ? renderNmdcNcrTable(nmdcOpen) : renderGovTable(govOpen)}`;
 }
 
 function renderGovTable(items) {
@@ -1477,34 +1142,26 @@ function renderTPCTable(items) {
   </table></div></div>`;
 }
 
-// ─── DOCUMENTS ───────────────────────────────────────────────
-function renderDocuments(){
-  const el=document.getElementById('page-documents');
-  el.innerHTML=`${isAdmin?'<div style="margin-bottom:16px;display:flex;justify-content:flex-end"><button class="btn btn-pri" onclick="addDocSection()">+ 新增分類區塊</button></div>':''}
-    ${state.docs.map((sec,si)=>`<div style="margin-bottom:20px">
-      <h3 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--textSec)">📄 ${sec.sec}</h3>
-      <div class="card">${sec.items.map((doc,di)=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:${di<sec.items.length-1?'1px solid rgba(30,39,56,.3)':'none'}">
-          <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;min-width:90px">${doc.code}</span><span style="font-size:12px">${doc.name}</span></div>
-          <div style="display:flex;align-items:center;gap:8px">
-            ${badge(doc.status==='complete'?'✅ 完整':'🔄 更新中',doc.status==='complete'?'var(--green)':'var(--amber)')}
-            ${doc.fileUrl?`<a href="${doc.fileUrl}" target="_blank" class="btn btn-sm btn-def" style="text-decoration:none" title="下載/開啟檔案">📥 下載</a>`:`<span style="font-size:10px;color:var(--textMut)">未設連結</span>`}
-            ${isAdmin?`<button class="btn-ghost btn-sm" onclick="editDocItem(${si},${di})" title="編輯">✏️</button><button class="btn-ghost btn-sm" onclick="delDoc(${si},${di})" title="刪除">🗑</button>`:''}
-          </div>
-        </div>`).join('')}
-        ${isAdmin?`<div style="padding:8px 16px;border-top:1px solid rgba(30,39,56,.3)"><button class="btn btn-ghost btn-sm" onclick="addDocItem(${si})">+ 新增文件</button></div>`:''}</div>
-    </div>`).join('')}
-    <div class="card" style="padding:16px;margin-top:10px;border-left:3px solid var(--amber)">
-      <div style="font-size:12px;color:var(--textSec);line-height:1.8">
-        <strong style="color:var(--amber)">💡 檔案連結使用方式：</strong><br>
-        ① PDF/文件 → 上傳至 <strong>Google Drive</strong>，右鍵「共用」→「知道連結的人都可以檢視」→ 複製連結貼入<br>
-        ② 若要直接下載，將 Google Drive 連結中的 <code>/view</code> 改成 <code>/export?format=pdf</code><br>
-        ③ HTML工具檔 → 上傳到 GitHub repo 的 <code>tools/</code> 資料夾，使用 <code>https://vivaaichat.github.io/safety-e-system/tools/檔名.html</code>
-      </div>
-    </div>`;
+function renderNmdcNcrTable(items) {
+  const todayStr = new Date().toISOString().slice(0,10);
+  return `<div class="card"><div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>改善單編號</th><th>開單日</th><th>承攬商</th><th>地點</th><th>違規敘述</th><th>準備者</th><th>到期日</th></tr></thead>
+    <tbody>${items.length > 0 ? items.map(d => {
+      const overdue = d.dueDate && d.dueDate < todayStr;
+      return `
+      <tr style="${overdue?'background:rgba(239,68,68,.05)':''}">
+        <td style="font-family:var(--mono);font-weight:600;color:var(--amber)">${d.ncrNo||'-'}</td>
+        <td style="white-space:nowrap">${d.date||'-'}</td>
+        <td style="font-weight:600">${d.subcontractor||'-'}</td>
+        <td>${d.location||'-'}</td>
+        <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(d.description||'').replace(/"/g,'&quot;')}">${d.description||'-'}</td>
+        <td>${d.preparer||'-'}</td>
+        <td style="white-space:nowrap;font-family:var(--mono);color:${overdue?'var(--red)':d.dueDate?'var(--text)':'var(--textMut)'};font-weight:${overdue?'700':'400'}">${d.dueDate||'-'}${overdue?' ⚠️ 逾期':''}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="7" style="text-align:center;padding:36px;color:var(--textMut)">全部已結案 🎉</td></tr>'}</tbody>
+  </table></div></div>`;
 }
 
-// ─── TOOLS ───────────────────────────────────────────────────
 let activeTool=null;
 function renderTools(){
   const el=document.getElementById('page-tools');
@@ -1525,7 +1182,7 @@ function renderTools(){
     <div class="field"><label>URL</label><input class="inp" id="gasUrlInp" placeholder="https://script.google.com/macros/s/..."></div>
     <button class="btn btn-pri" onclick="localStorage.setItem('gasUrl',document.getElementById('gasUrlInp').value);toast('已儲存')">儲存</button></div>`;return}
   const ct=state.tools.find(t=>t.id===activeTool&&t.type==='custom');
-  if(ct){const iframeSrc=ct.htmlUrl?ct.htmlUrl:(ct.htmlContent?'':'');
+  if(ct){
     el.innerHTML=`<button class="btn btn-ghost" onclick="activeTool=null;renderTools()">← 返回</button>
     <div class="card" style="margin-top:14px;overflow:hidden"><div style="padding:12px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px">${ct.name}</div>
     ${ct.htmlUrl?`<iframe src="${ct.htmlUrl}" style="width:100%;height:600px;border:none" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>`
@@ -1549,7 +1206,6 @@ function calcSling(){
   document.getElementById('slingWarn').innerHTML=angle>120?'<div style="margin-top:14px;padding:10px;background:var(--redBg);border-radius:8px;color:var(--red);font-size:11px;font-weight:600">⚠️ 夾角超過120°！</div>':'';
 }
 
-// ─── TRACKING ────────────────────────────────────────────────
 function renderTracking(){
   const el=document.getElementById('page-tracking');
   el.innerHTML=`
@@ -1570,8 +1226,6 @@ function renderTracking(){
       </div>`}).join('')}`;
 }
 
-// ─── SCHEDULE ────────────────────────────────────────────────
-// Taiwan public holidays (extend as needed)
 const TW_HOLIDAYS = {
   '2026-01-01':'元旦','2026-02-16':'除夕','2026-02-17':'春節','2026-02-18':'春節','2026-02-19':'春節','2026-02-20':'春節',
   '2026-02-27':'228連假','2026-02-28':'和平紀念日','2026-04-03':'兒童節連假','2026-04-04':'兒童節','2026-04-06':'清明節',
@@ -1580,17 +1234,13 @@ const TW_HOLIDAYS = {
   '2025-02-28':'和平紀念日','2025-04-03':'兒童節連假','2025-04-04':'兒童節','2025-04-05':'清明節','2025-05-01':'勞動節',
   '2025-05-30':'端午節連假','2025-05-31':'端午節','2025-10-06':'中秋節','2025-10-10':'國慶日','2025-10-24':'光復節',
 };
-
 function isHoliday(dateStr){return !!TW_HOLIDAYS[dateStr];}
 
 function getEffectiveCell(p, di, dateStr) {
-  // Apply temporary leave overlay
   const leave = (state.leave||[]).find(l => l.name === p.name && l.date === dateStr);
   if (leave) return '臨';
-  // Default: weekday=R, weekend/holiday=休 if cell is empty
   let val = p.days?.[di] || '';
   if (!val) {
-    // Parse YYYY-MM-DD manually to avoid timezone issues
     const [yr, mo, da] = dateStr.split('-').map(Number);
     const wd = new Date(yr, mo-1, da).getDay();
     val = (wd === 0 || wd === 6 || isHoliday(dateStr)) ? '休' : 'R';
@@ -1604,10 +1254,7 @@ function renderSchedule(){
   const dim=new Date(year,mon,0).getDate();
   const pp=sc.people||[];
   const el=document.getElementById('page-schedule');
-
-  // Helper: build local YYYY-MM-DD from y/m/d (avoid UTC)
   const fmt = (y,m,d) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -1625,7 +1272,6 @@ function renderSchedule(){
         <button class="btn btn-def" onclick="addTeamMember()">👥 管理團隊</button>
       </div>`:''}
     </div>
-
     ${(state.leave||[]).filter(l=>l.date && l.date.startsWith(sc.month)).length > 0 ? `
     <div class="card" style="margin-bottom:14px;padding:10px 14px;border-left:3px solid var(--red)">
       <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">🚨 本月臨時請假紀錄</div>
@@ -1639,7 +1285,6 @@ function renderSchedule(){
           </div>`).join('')}
       </div>
     </div>` : ''}
-
     <div class="card" style="overflow:auto"><table class="sched-table">
       <thead><tr>
         <th class="sched-name-head" style="padding:8px 10px">區域 / 人員</th>
@@ -1677,30 +1322,10 @@ function renderSchedule(){
     </table></div>`;
 }
 
-function updateSchedCell(pi,di,val){
-  if(!state.schedule.people[pi].days)state.schedule.people[pi].days=[];
-  state.schedule.people[pi].days[di]=val;
-  saveState();
-}
+function updateSchedCell(pi,di,val){ if(!state.schedule.people[pi].days)state.schedule.people[pi].days=[]; state.schedule.people[pi].days[di]=val; saveState(); }
+function addSchedulePerson(){ const name=prompt('輸入姓名');if(!name)return; state.schedule.people.push({name,area:'',days:[],overtime:[]}); if(!getTeam().includes(name)){ if(!state.customTeam)state.customTeam=[...TEAM]; state.customTeam.push(name); TEAM=state.customTeam; } saveState();renderSchedule();toast('已新增 '+name); }
+function delSchedPerson(pi){ if(!confirm('確定刪除此人員的班表？'))return; state.schedule.people.splice(pi,1);saveState();renderSchedule();toast('已刪除'); }
 
-function addSchedulePerson(){
-  const name=prompt('輸入姓名');if(!name)return;
-  state.schedule.people.push({name,area:'',days:[],overtime:[]});
-  // Auto-add to TEAM if not exists
-  if(!getTeam().includes(name)){
-    if(!state.customTeam)state.customTeam=[...TEAM];
-    state.customTeam.push(name);
-    TEAM=state.customTeam;
-  }
-  saveState();renderSchedule();toast('已新增 '+name);
-}
-
-function delSchedPerson(pi){
-  if(!confirm('確定刪除此人員的班表？'))return;
-  state.schedule.people.splice(pi,1);saveState();renderSchedule();toast('已刪除');
-}
-
-// ── Upload Excel and parse rotation plan ──
 function uploadScheduleExcel(event){
   const file = event.target.files[0];
   if(!file)return;
@@ -1712,166 +1337,69 @@ function uploadScheduleExcel(event){
       const ws = wb.Sheets[sheetName];
       const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
       parseRotationPlan(aoa, sheetName);
-      event.target.value = ''; // reset
-    } catch(err){
-      console.error('Excel parse error:',err);
-      toast('Excel 解析失敗：'+err.message,'error');
-    }
+      event.target.value = '';
+    } catch(err){ console.error('Excel parse error:',err); toast('Excel 解析失敗：'+err.message,'error'); }
   };
   reader.readAsArrayBuffer(file);
 }
 
 function parseRotationPlan(aoa, sheetName){
-  console.log('=== Parsing Excel ===');
-  console.log('Total rows:', aoa.length);
-  console.log('Row 0:', aoa[0]);
-  console.log('Row 1:', aoa[1]);
-  console.log('Row 2:', aoa[2]);
-  console.log('Row 3:', aoa[3]);
-
-  // Helper: format Date as YYYY-MM-DD using LOCAL time (not UTC)
-  function fmtDate(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${dd}`;
-  }
-
-  // Find the date row: the row that contains at least one Date object or parseable date
-  let dateRowIdx = -1;
-  let dateStartCol = -1;
-  let firstDate = null;
-
-  // Strategy 1: look for '日期 Date' header, then first Date object to the right
+  function fmtDate(d) { const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
+  let dateRowIdx = -1, dateStartCol = -1, firstDate = null;
   for(let i=0; i<Math.min(aoa.length,5); i++){
-    const row = aoa[i];
-    if(!row) continue;
+    const row = aoa[i]; if(!row) continue;
     for(let j=0; j<Math.min(row.length,5); j++){
       const cell = String(row[j]||'').trim();
       if(cell.includes('日期') || cell.toLowerCase().includes('date')){
         dateRowIdx = i;
-        // Find first Date object to the right
         for(let k=j+1; k<row.length; k++){
           const v = row[k];
-          if(v instanceof Date && !isNaN(v.getTime())){
-            dateStartCol = k;
-            firstDate = v;
-            break;
-          }
-          if(typeof v === 'number' && v > 40000){ // Excel serial date number
-            const d = new Date((v - 25569) * 86400000);
-            if(!isNaN(d.getTime())){
-              dateStartCol = k;
-              firstDate = d;
-              break;
-            }
-          }
+          if(v instanceof Date && !isNaN(v.getTime())){ dateStartCol = k; firstDate = v; break; }
+          if(typeof v === 'number' && v > 40000){ const d = new Date((v - 25569) * 86400000); if(!isNaN(d.getTime())){ dateStartCol = k; firstDate = d; break; } }
         }
         break;
       }
     }
     if(dateRowIdx !== -1 && dateStartCol !== -1) break;
   }
-
-  // Strategy 2: scan all rows for any Date object
   if(dateStartCol === -1){
     for(let i=0; i<Math.min(aoa.length,8); i++){
       const row = aoa[i] || [];
       for(let j=0; j<row.length; j++){
         const v = row[j];
-        if(v instanceof Date && !isNaN(v.getTime()) && v.getFullYear() > 2020){
-          dateRowIdx = i;
-          dateStartCol = j;
-          firstDate = v;
-          console.log(`Found date at row ${i} col ${j}: ${v}`);
-          break;
-        }
+        if(v instanceof Date && !isNaN(v.getTime()) && v.getFullYear() > 2020){ dateRowIdx = i; dateStartCol = j; firstDate = v; break; }
       }
       if(dateStartCol !== -1) break;
     }
   }
-
-  if(dateStartCol === -1 || !firstDate){
-    toast('找不到日期欄位，請看 Console (F12)','error');
-    console.error('No date detected. Full first 4 rows:', aoa.slice(0,4));
-    return;
-  }
-
-  console.log(`Found: dateRow=${dateRowIdx}, dateStartCol=${dateStartCol}, firstDate=${firstDate} (local: ${fmtDate(firstDate)})`);
-
-  // ── Normalize firstDate: SheetJS may return time slightly before midnight due to UTC conversion ──
-  // If the time is near end of day (UTC), treat as the next local day
-  if(firstDate.getUTCHours() >= 12){
-    // Likely a date that got shifted; round up
-    firstDate = new Date(firstDate.getTime() + 12*3600*1000);
-  }
-  // Snap to local midnight to prevent accumulation errors
+  if(dateStartCol === -1 || !firstDate){ toast('找不到日期欄位，請看 Console (F12)','error'); console.error('No date detected. Full first 4 rows:', aoa.slice(0,4)); return; }
+  if(firstDate.getUTCHours() >= 12){ firstDate = new Date(firstDate.getTime() + 12*3600*1000); }
   firstDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
-  console.log(`Normalized firstDate: ${fmtDate(firstDate)}`);
 
-  // Build date columns array - extrapolate sequentially
-  const dateRow = aoa[dateRowIdx];
   const dateColumns = [];
   const monthStr = firstDate.getFullYear() + '-' + String(firstDate.getMonth()+1).padStart(2,'0');
-  const year = firstDate.getFullYear();
-  const month = firstDate.getMonth();
-  const startDay = firstDate.getDate();
+  const year = firstDate.getFullYear(), month = firstDate.getMonth(), startDay = firstDate.getDate();
   const daysInMonth = new Date(year, month+1, 0).getDate();
+  for(let i=0; i<daysInMonth; i++){ const d = new Date(year, month, startDay + i); if(d.getMonth() !== month) break; const col = dateStartCol + i; dateColumns.push({col, date:d, dateStr: fmtDate(d)}); }
+  if(dateColumns.length < 5){ toast(`只解析到 ${dateColumns.length} 個日期`,'error'); return; }
 
-  // Generate sequential dates starting from firstDate within the same month
-  for(let i=0; i<daysInMonth; i++){
-    const d = new Date(year, month, startDay + i);
-    if(d.getMonth() !== month) break;
-    const col = dateStartCol + i;
-    dateColumns.push({col, date:d, dateStr: fmtDate(d)});
-  }
-
-  console.log(`Generated ${dateColumns.length} date columns from ${dateColumns[0].dateStr} to ${dateColumns[dateColumns.length-1].dateStr}`);
-
-  if(dateColumns.length < 5){
-    toast(`只解析到 ${dateColumns.length} 個日期`,'error');
-    return;
-  }
-
-  // Find name column - search rows below dateRow for cells with \n + Latin chars
   let nameCol = -1, areaCol = -1;
   for(let r=dateRowIdx+1; r<Math.min(aoa.length, dateRowIdx+12); r++){
-    const row = aoa[r];
-    if(!row) continue;
+    const row = aoa[r]; if(!row) continue;
     for(let c=0; c<dateStartCol; c++){
       const v = String(row[c]||'').trim();
-      if(v.includes('\n') && /[A-Za-z]{2,}/.test(v)){
-        nameCol = c;
-        if(c > 0) areaCol = c - 1;
-        console.log(`Found name col=${c} in row ${r}: ${v.replace(/\n/g,' / ')}`);
-        break;
-      }
+      if(v.includes('\n') && /[A-Za-z]{2,}/.test(v)){ nameCol = c; if(c > 0) areaCol = c - 1; break; }
     }
     if(nameCol !== -1) break;
   }
-
-  // Fallback: assume name is one column before date start
-  if(nameCol === -1){
-    nameCol = dateStartCol - 1;
-    areaCol = dateStartCol - 2;
-    console.log(`Fallback: nameCol=${nameCol}, areaCol=${areaCol}`);
-  }
+  if(nameCol === -1){ nameCol = dateStartCol - 1; areaCol = dateStartCol - 2; }
 
   const newPeople = [];
   let currentArea = '';
-
-  // Iterate rows: skip dateRow + week_day row, then every 2 rows = one person
   for(let r = dateRowIdx + 2; r < aoa.length; r++){
     const row = aoa[r];
     if(!row || row.length === 0) continue;
-
-    if(areaCol >= 0){
-      const areaCell = String(row[areaCol]||'').trim();
-      if(areaCell && !areaCell.match(/^\d+$/) && areaCell.length > 1 && !areaCell.startsWith('=')){
-        currentArea = areaCell.replace(/\n/g,' ').trim();
-      }
-    }
-
+    if(areaCol >= 0){ const areaCell = String(row[areaCol]||'').trim(); if(areaCell && !areaCell.match(/^\d+$/) && areaCell.length > 1 && !areaCell.startsWith('=')){ currentArea = areaCell.replace(/\n/g,' ').trim(); } }
     const nameCell = String(row[nameCol]||'').trim();
     if(!nameCell) continue;
     if(nameCell.match(/^[\d.\s]+$/)) continue;
@@ -1879,63 +1407,29 @@ function parseRotationPlan(aoa, sheetName){
     if(nameCell.includes('SUM')) continue;
     if(nameCell === '加班累計' || nameCell.includes('Accumulated')) continue;
     if(nameCell.length < 2) continue;
-
     let displayName = nameCell;
-    if(nameCell.includes('\n')){
-      const parts = nameCell.split('\n').map(p=>p.trim()).filter(Boolean);
-      const eng = parts.find(p => /^[A-Za-z]+$/.test(p));
-      displayName = eng || parts[parts.length-1] || parts[0];
-    }
+    if(nameCell.includes('\n')){ const parts = nameCell.split('\n').map(p=>p.trim()).filter(Boolean); const eng = parts.find(p => /^[A-Za-z]+$/.test(p)); displayName = eng || parts[parts.length-1] || parts[0]; }
     if(!displayName || displayName.length < 2) continue;
-
     const days = [];
     dateColumns.forEach(({col, date}, dayIdx) => {
       const cell = row[col];
       let code = '';
-      if(cell !== null && cell !== undefined){
-        code = String(cell).trim();
-      }
+      if(cell !== null && cell !== undefined){ code = String(cell).trim(); }
       if(code.startsWith('=')) code = '';
       if(code === 'H') code = '休';
       if(code === 'CCTV' || code === 'CCTV ') code = 'CCT';
       if(code === '環保') code = '環';
-      if(!code){
-        const wd = date.getDay();
-        code = (wd === 0 || wd === 6) ? '休' : 'R';
-      }
+      if(!code){ const wd = date.getDay(); code = (wd === 0 || wd === 6) ? '休' : 'R'; }
       days[dayIdx] = code;
     });
-
     const otRow = aoa[r+1] || [];
     const overtime = [];
-    dateColumns.forEach(({col}, dayIdx) => {
-      const v = otRow[col];
-      let n = 0;
-      if(v !== null && v !== undefined && v !== ''){
-        const parsed = parseFloat(v);
-        if(!isNaN(parsed)) n = parsed;
-      }
-      overtime[dayIdx] = n;
-    });
-
-    console.log(`Person ${newPeople.length+1}: ${displayName} (${currentArea})`);
+    dateColumns.forEach(({col}, dayIdx) => { const v = otRow[col]; let n = 0; if(v !== null && v !== undefined && v !== ''){ const parsed = parseFloat(v); if(!isNaN(parsed)) n = parsed; } overtime[dayIdx] = n; });
     newPeople.push({name: displayName, area: currentArea, days: days, overtime: overtime});
-
-    if(!getTeam().includes(displayName)){
-      if(!state.customTeam) state.customTeam = [...TEAM];
-      if(!state.customTeam.includes(displayName)) state.customTeam.push(displayName);
-    }
-
-    r++; // skip overtime row
+    if(!getTeam().includes(displayName)){ if(!state.customTeam) state.customTeam = [...TEAM]; if(!state.customTeam.includes(displayName)) state.customTeam.push(displayName); }
+    r++;
   }
-
-  console.log(`Total people parsed: ${newPeople.length}`);
-
-  if(newPeople.length === 0){
-    toast('未解析到任何人員，請看 Console (F12)','error');
-    return;
-  }
-
+  if(newPeople.length === 0){ toast('未解析到任何人員，請看 Console (F12)','error'); return; }
   state.schedule.month = monthStr;
   state.schedule.people = newPeople;
   if(state.customTeam) TEAM = state.customTeam;
@@ -1944,7 +1438,6 @@ function parseRotationPlan(aoa, sheetName){
   toast(`已匯入 ${newPeople.length} 位人員的 ${monthStr} 班表 ✓`);
 }
 
-// ── Temporary leave management ──
 function addLeave(){
   showGenModal('🚨 新增臨時請假',`
     <div class="field"><label>日期</label><input class="inp" type="date" id="lvDate" value="${today()}"></div>
@@ -1952,157 +1445,108 @@ function addLeave(){
     <div class="field"><label>請假原因</label><input class="inp" id="lvReason" placeholder="例: 家中有事 / 病假 / 事假"></div>
     <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveLeave()">記錄</button>`);
 }
-
 function saveLeave(){
-  const date=document.getElementById('lvDate').value;
-  const name=document.getElementById('lvName').value;
-  const reason=document.getElementById('lvReason').value;
+  const date=document.getElementById('lvDate').value, name=document.getElementById('lvName').value, reason=document.getElementById('lvReason').value;
   if(!date||!name)return toast('請填寫日期與人員','error');
   if(!state.leave)state.leave=[];
   state.leave.unshift({id:Date.now(), date, name, reason});
   saveState();closeModal('genModal');toast('已記錄請假');renderSchedule();
-  // Sync to Sheet 2
   gasWrite('leave', state.leave);
 }
+function delLeave(id){ state.leave = (state.leave||[]).filter(l=>l.id!==id); saveState();renderSchedule();toast('已刪除'); gasWrite('leave', state.leave); }
 
-function delLeave(id){
-  state.leave = (state.leave||[]).filter(l=>l.id!==id);
-  saveState();renderSchedule();toast('已刪除');
-  gasWrite('leave', state.leave);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// CRUD ACTIONS
-// ═══════════════════════════════════════════════════════════════
 function addAnnouncement(){
-  showGenModal('📢 新增公告',`
-    <div class="field"><label>公告內容</label><div class="rich-editor"><div class="rich-toolbar">
-      <button onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button>
-      <button onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button>
-      <button onmousedown="event.preventDefault();document.execCommand('underline')"><u>U</u></button>
-      <button onmousedown="event.preventDefault();document.execCommand('insertUnorderedList')">•</button>
-    </div><div contenteditable class="rich-content" id="annContent" data-placeholder="輸入公告內容..."></div></div></div>
-    <div class="field"><label>優先度</label><select class="sel" id="annPri"><option value="high">🔴 重要</option><option value="medium" selected>🟡 一般</option></select></div>
-    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveAnn()">發布公告</button>`);
+  showGenModal('🔔 新增公告',`
+    <div class="field"><label>內容</label><textarea class="txa" id="annContent" placeholder="公告內容"></textarea></div>
+    <div class="field"><label>優先度</label><select class="sel" id="annPriority"><option value="high">🔴 重要</option><option value="medium" selected>🟡 一般</option></select></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveAnn()">發布</button>`);
 }
 function saveAnn(){
-  const c=document.getElementById('annContent').innerHTML,p=document.getElementById('annPri').value;
-  if(!c.trim())return;state.ann.unshift({id:Date.now(),date:today(),content:c,priority:p});saveState();closeModal('genModal');toast('公告已發布');renderPage(currentPage);
-  // Sync to Sheet 2
+  const content=document.getElementById('annContent').value, priority=document.getElementById('annPriority').value;
+  if(!content)return toast('請輸入內容','error');
+  state.ann.unshift({id:Date.now(),date:today(),content,priority});
+  saveState();closeModal('genModal');toast('已發布公告');renderPage(currentPage);
   gasWrite('announcements', state.ann);
 }
-function delAnn(id){state.ann=state.ann.filter(a=>a.id!==id);saveState();renderPage(currentPage);toast('已刪除');gasWrite('announcements', state.ann);}
+function delAnn(id){ if(!confirm('刪除此公告？'))return; state.ann=state.ann.filter(a=>a.id!==id);saveState();toast('已刪除');renderPage(currentPage); gasWrite('announcements', state.ann); }
 
 function addTracking(){
   showGenModal('📋 新增追蹤事項',`
-    <div class="field"><label>事項</label><input class="inp" id="trkItem" placeholder="事項內容..."></div>
-    <div class="field"><label>負責人</label><div style="display:flex;flex-wrap:wrap;gap:4px" id="trkAssignees">${getTeam().map(p=>`<button class="pill-btn" style="background:transparent;border:1px solid var(--border);color:var(--textSec);font-size:11px" onclick="this.dataset.sel=this.dataset.sel==='1'?'':'1';this.style.background=this.dataset.sel==='1'?'var(--amberBg)':'transparent';this.style.color=this.dataset.sel==='1'?'var(--amber)':'var(--textSec)'" data-name="${p}">${p}</button>`).join('')}</div></div>
-    <div class="field"><label>期限</label><input class="inp" type="date" id="trkDeadline"></div>
-    <div class="field"><label>優先度</label><select class="sel" id="trkPri"><option value="high">🔴 高</option><option value="medium" selected>🟡 中</option><option value="low">🟢 低</option></select></div>
-    <div class="field"><label>備註</label><div class="rich-editor"><div class="rich-toolbar"><button onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button><button onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button></div><div contenteditable class="rich-content" id="trkNote" data-placeholder="備註..."></div></div></div>
+    <div class="field"><label>事項</label><input class="inp" id="trkItem" placeholder="追蹤事項"></div>
+    <div class="field"><label>負責人 (逗號分隔)</label><input class="inp" id="trkAssignees" placeholder="例: 王工程師, 李主管"></div>
+    <div class="field"><label>期限</label><input class="inp" type="date" id="trkDeadline" value="${today()}"></div>
+    <div class="field"><label>優先度</label><select class="sel" id="trkPriority"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select></div>
+    <div class="field"><label>備註</label><input class="inp" id="trkNote"></div>
     <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTrk()">新增</button>`);
 }
 function saveTrk(){
-  const item=document.getElementById('trkItem').value;if(!item)return;
-  const assignees=[...document.querySelectorAll('#trkAssignees button[data-sel="1"]')].map(b=>b.dataset.name);
-  state.trk.unshift({id:Date.now(),item,assignees,deadline:document.getElementById('trkDeadline').value,priority:document.getElementById('trkPri').value,status:'pending',note:document.getElementById('trkNote').innerHTML});
+  const item=document.getElementById('trkItem').value;
+  if(!item)return toast('請輸入事項','error');
+  const assignees=document.getElementById('trkAssignees').value.split(/[,，、;]\s*/).filter(Boolean);
+  state.trk.unshift({id:Date.now(),item,assignees,deadline:document.getElementById('trkDeadline').value,priority:document.getElementById('trkPriority').value,status:'pending',note:document.getElementById('trkNote').value});
   saveState();closeModal('genModal');toast('已新增');renderPage(currentPage);
-  // Sync to Sheet 2 (assignees stored as comma-separated string)
-  gasWrite('tracking', state.trk.map(t=>({...t, assignees: (t.assignees||[]).join(',')})));
+  gasWrite('tracking', state.trk);
 }
-function cycleTrack(id){const c={pending:'in-progress','in-progress':'done',done:'pending'};const t=state.trk.find(x=>x.id===id);if(t)t.status=c[t.status];saveState();renderTracking();toast('已更新');gasWrite('tracking', state.trk.map(t=>({...t, assignees: (t.assignees||[]).join(',')})));}
-function delTrack(id){state.trk=state.trk.filter(t=>t.id!==id);saveState();renderTracking();toast('已刪除');gasWrite('tracking', state.trk.map(t=>({...t, assignees: (t.assignees||[]).join(',')})));}
+function cycleTrack(id){
+  const t=state.trk.find(x=>x.id===id);if(!t)return;
+  t.status = t.status==='pending'?'in-progress':t.status==='in-progress'?'done':'pending';
+  saveState();renderPage(currentPage);
+  gasWrite('tracking', state.trk);
+}
+function delTrack(id){ if(!confirm('刪除此事項？'))return; state.trk=state.trk.filter(t=>t.id!==id);saveState();toast('已刪除');renderPage(currentPage); gasWrite('tracking', state.trk); }
 
-function addDeficiency(){
-  showGenModal('⚠️ 新增TPC缺失單',`<div id="defFormArea"></div>`,600);
-  setTimeout(()=>renderDefForm('defFormArea'),0);
-}
 function renderDefForm(containerId){
-  document.getElementById(containerId).innerHTML=`
-    <div class="grid grid-2" style="gap:12px">
-      <div class="field"><label>發現日期</label><input class="inp" type="date" id="dfDate" value="${today()}"></div>
-      <div class="field"><label>改善期限</label><input class="inp" type="date" id="dfDue"></div>
+  const c=document.getElementById(containerId);if(!c)return;
+  c.innerHTML=`
+    <div class="grid grid-2">
+      <div class="field"><label>缺失單號</label><input class="inp" id="dfNo" placeholder="TPC-2026-005"></div>
+      <div class="field"><label>日期</label><input class="inp" type="date" id="dfDate" value="${today()}"></div>
       <div class="field"><label>地點</label><select class="sel" id="dfLoc">${optionsHtml(LOCATIONS,true)}</select></div>
-      <div class="field"><label>承包商</label><select class="sel" id="dfCon">${optionsHtml(CONTRACTORS,true)}</select></div>
-      <div class="field"><label>類別</label><select class="sel" id="dfCat">${optionsHtml(DEF_CATS,true)}</select></div>
-      <div style="display:flex;align-items:flex-end;padding-bottom:14px"><span style="font-size:11px;color:var(--textSec)">嚴重度由系統判定</span></div>
+      <div class="field"><label>承攬商</label><select class="sel" id="dfCon">${optionsHtml(CONTRACTORS,true)}</select></div>
+      <div class="field"><label>缺失種類</label><select class="sel" id="dfCat" onchange="previewSev()">${optionsHtml(DEF_CATS,true)}</select></div>
+      <div class="field"><label>改善期限</label><input class="inp" type="date" id="dfDue"></div>
     </div>
-    <div class="field"><label>缺失說明</label><textarea class="txa" id="dfDesc" placeholder="描述..." oninput="previewSev()"></textarea></div>
-    <div id="sevPreview" style="margin-bottom:12px"></div>
-    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDef()">建立缺失單</button>`;
+    <div class="field"><label>缺失說明</label><textarea class="txa" id="dfDesc" oninput="previewSev()" placeholder="描述缺失情形"></textarea></div>
+    <div id="dfSevPreview" style="margin-bottom:12px"></div>
+    <button class="btn btn-pri" onclick="saveDef()">儲存缺失單</button>`;
 }
 function previewSev(){
-  const desc=document.getElementById('dfDesc').value,cat=document.getElementById('dfCat')?.value||'';
-  if(desc&&cat){const s=autoSeverity(desc,cat);document.getElementById('sevPreview').innerHTML=badge(SEV_LABEL[s]+' (系統判定)',SEV_COLOR[s])}
+  const desc=document.getElementById('dfDesc')?.value||'';const cat=document.getElementById('dfCat')?.value||'';
+  const box=document.getElementById('dfSevPreview');if(!box)return;
+  if(!desc&&!cat){box.innerHTML='';return;}
+  const sev=autoSeverity(desc,cat);
+  box.innerHTML=`自動研判嚴重度: ${badge(SEV_LABEL[sev],SEV_COLOR[sev])}`;
 }
 function saveDef(){
-  const date=document.getElementById('dfDate').value,due=document.getElementById('dfDue').value,loc=document.getElementById('dfLoc').value,con=document.getElementById('dfCon').value,cat=document.getElementById('dfCat').value,desc=document.getElementById('dfDesc').value;
-  if(!date||!due||!loc||!con||!cat||!desc)return toast('請填寫所有欄位','error');
-  const no='TPC-2026-'+String(state.def.length+1).padStart(3,'0');
-  state.def.unshift({id:Date.now(),no,date,location:loc,contractor:con,category:cat,description:desc,status:'open',dueDate:due,response:'',severity:autoSeverity(desc,cat)});
-  saveState();closeModal('genModal');activeTool=null;toast('缺失單已建立');renderPage(currentPage);
-}
-function viewDef(id){
-  const d=state.def.find(x=>x.id===id);if(!d)return;
-  showGenModal('缺失單 '+d.no,`
-    <div class="grid grid-2" style="gap:12px;margin-bottom:14px">
-      ${[['編號',d.no,'var(--amber)'],['日期',d.date],['地點',d.location],['承包商',d.contractor],['類別',d.category]].map(([l,v,c])=>`<div><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">${l}</div><div style="font-size:13px;${c?'font-weight:700;color:'+c+';font-family:var(--mono)':''}">${v}</div></div>`).join('')}
-      <div><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">嚴重度</div>${badge(SEV_LABEL[d.severity],SEV_COLOR[d.severity])}</div>
-    </div>
-    <div style="margin-bottom:14px"><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">說明</div><div style="font-size:12px;line-height:1.6;padding:10px;background:var(--bg);border-radius:8px">${d.description}</div></div>
-    <div style="margin-bottom:14px"><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">期限</div><div style="font-size:13px;font-weight:600;color:${isOverdue(d)?'var(--red)':'var(--text)'}">${d.dueDate}${isOverdue(d)?' ⚠️ 逾期':''}</div></div>
-    ${d.response?`<div style="margin-bottom:14px"><div style="font-size:10px;color:var(--textMut);margin-bottom:3px">改善回覆</div><div style="font-size:12px;padding:10px;background:var(--bg);border-radius:8px">${d.response}</div></div>`:''}
-    ${isAdmin?`
-      <div class="field"><label>狀態</label><select class="sel" id="vdStatus"><option value="open"${d.status==='open'?' selected':''}>待改善</option><option value="in-progress"${d.status==='in-progress'?' selected':''}>改善中</option><option value="closed"${d.status==='closed'?' selected':''}>已結案</option></select></div>
-      <div class="field"><label>改善回覆</label><textarea class="txa" id="vdResponse">${d.response||''}</textarea></div>
-      <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="updateDef(${d.id})">更新</button>`:''}`,600);
-}
-function updateDef(id){
-  const d=state.def.find(x=>x.id===id);if(!d)return;
-  d.status=document.getElementById('vdStatus').value;d.response=document.getElementById('vdResponse').value;
-  saveState();closeModal('genModal');toast('已更新');renderPage(currentPage);
+  const no=document.getElementById('dfNo').value,desc=document.getElementById('dfDesc').value;
+  if(!no||!desc)return toast('請填寫單號與說明','error');
+  const def={id:Date.now(),no,date:document.getElementById('dfDate').value,location:document.getElementById('dfLoc').value,contractor:document.getElementById('dfCon').value,category:document.getElementById('dfCat').value,description:desc,status:'open',dueDate:document.getElementById('dfDue').value,response:''};
+  def.severity=autoSeverity(def.description,def.category);
+  state.def.unshift(def);saveState();toast('已儲存缺失單');activeTool=null;renderTools();
 }
 
-function addDocSection(){showGenModal('新增分類區塊',`<div class="field"><label>區塊名稱</label><input class="inp" id="secName" placeholder="例: ISP 個別安全施工計畫"></div><button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDocSec()">新增</button>`)}
-function saveDocSec(){const n=document.getElementById('secName').value;if(!n)return;state.docs.push({sec:n,items:[]});saveState();closeModal('genModal');toast('已新增');renderDocuments()}
-function addDocItem(si){showGenModal('新增文件',`
-  <div class="field"><label>編號</label><input class="inp" id="diCode" placeholder="NMDC-HSE-007"></div>
-  <div class="field"><label>名稱</label><input class="inp" id="diName" placeholder="文件名稱"></div>
-  <div class="field"><label>狀態</label><select class="sel" id="diStatus"><option value="complete">完整</option><option value="in-progress" selected>更新中</option></select></div>
-  <div class="field"><label>檔案連結（Google Drive / 網址）</label><input class="inp" id="diUrl" placeholder="https://drive.google.com/file/d/..."></div>
-  <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">貼上 Google Drive 分享連結或任何可下載的網址</p>
-  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveDocItem(${si})">新增</button>`)}
-function saveDocItem(si){const c=document.getElementById('diCode').value,n=document.getElementById('diName').value,s=document.getElementById('diStatus').value,u=document.getElementById('diUrl').value;if(!c||!n)return;state.docs[si].items.push({code:c,name:n,status:s,fileUrl:u});saveState();closeModal('genModal');toast('已新增');renderDocuments()}
-function editDocItem(si,di){const doc=state.docs[si].items[di];showGenModal('編輯文件',`
-  <div class="field"><label>編號</label><input class="inp" id="eiCode" value="${doc.code}"></div>
-  <div class="field"><label>名稱</label><input class="inp" id="eiName" value="${doc.name}"></div>
-  <div class="field"><label>狀態</label><select class="sel" id="eiStatus"><option value="complete"${doc.status==='complete'?' selected':''}>完整</option><option value="in-progress"${doc.status==='in-progress'?' selected':''}>更新中</option></select></div>
-  <div class="field"><label>檔案連結（Google Drive / 網址）</label><input class="inp" id="eiUrl" value="${doc.fileUrl||''}"></div>
-  <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">貼上 Google Drive 分享連結，點擊「下載」即可直接開啟/下載</p>
-  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveEditDoc(${si},${di})">儲存</button>`)}
-function saveEditDoc(si,di){state.docs[si].items[di]={code:document.getElementById('eiCode').value,name:document.getElementById('eiName').value,status:document.getElementById('eiStatus').value,fileUrl:document.getElementById('eiUrl').value};saveState();closeModal('genModal');toast('已更新');renderDocuments()}
-function delDoc(si,di){state.docs[si].items.splice(di,1);saveState();renderDocuments();toast('已刪除')}
-
-function addTool(){showGenModal('新增工具',`
-  <div class="field"><label>工具名稱</label><input class="inp" id="tlName" placeholder="名稱"></div>
-  <div class="field"><label>說明</label><input class="inp" id="tlDesc" placeholder="描述"></div>
-  <div class="field"><label>方式一：HTML 網址（推薦 — 放在 GitHub repo 的 tools/ 資料夾）</label><input class="inp" id="tlUrl" placeholder="例: tools/bsa-form.html 或完整網址"></div>
-  <p style="font-size:10px;color:var(--textMut);margin:-8px 0 12px">將 HTML 檔上傳到 repo 的 tools/ 資料夾，輸入相對路徑即可（無容量限制）</p>
-  <div class="field"><label>方式二：直接上傳 HTML 檔案（存在瀏覽器，有容量限制）</label><input type="file" accept=".html,.htm" id="tlFile" style="font-size:12px;color:var(--textSec)"><div id="tlFileStatus" style="margin-top:6px"></div></div>
-  <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTool()">新增工具</button>`);
-  setTimeout(()=>{document.getElementById('tlFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{document.getElementById('tlFile').dataset.content=ev.target.result;document.getElementById('tlFileStatus').innerHTML=badge('✅ 已載入 '+(ev.target.result.length/1024).toFixed(1)+'KB','var(--green)')};r.readAsText(f)}},0);
+function addTool(){
+  showGenModal('🔧 新增工具',`
+    <div class="field"><label>名稱</label><input class="inp" id="toolName"></div>
+    <div class="field"><label>說明</label><input class="inp" id="toolDesc"></div>
+    <div class="field"><label>圖示 Emoji</label><input class="inp" id="toolIcon" value="🔧"></div>
+    <div class="field"><label>HTML 網址 (選填)</label><input class="inp" id="toolUrl" placeholder="https://..."></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="saveTool()">新增</button>`);
 }
-function saveTool(){const n=document.getElementById('tlName').value,d=document.getElementById('tlDesc').value,u=document.getElementById('tlUrl').value,h=document.getElementById('tlFile').dataset?.content||'';if(!n)return;state.tools.push({id:Date.now().toString(),name:n,desc:d,icon:'🔧',color:'var(--cyan)',type:'custom',htmlUrl:u,htmlContent:h});saveState();closeModal('genModal');toast('已新增');renderTools()}
-function delTool(id){state.tools=state.tools.filter(t=>t.id!==id);saveState();renderTools();toast('已刪除')}
+function saveTool(){
+  const name=document.getElementById('toolName').value;
+  if(!name)return toast('請輸入名稱','error');
+  state.tools.push({id:'custom-'+Date.now(),name,desc:document.getElementById('toolDesc').value,icon:document.getElementById('toolIcon').value||'🔧',color:'var(--amber)',type:'custom',htmlUrl:document.getElementById('toolUrl').value});
+  saveState();closeModal('genModal');toast('已新增工具');renderTools();
+}
+function delTool(id){ if(!confirm('刪除此工具？'))return; state.tools=state.tools.filter(t=>t.id!==id);saveState();toast('已刪除');renderTools(); }
 
-// ═══════════════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded',function(){
+document.addEventListener('DOMContentLoaded',()=>{
   loadState();
-  document.getElementById('todayDate').textContent=new Date().toLocaleDateString('zh-TW');
-  buildNav();updateAdminUI();goPage('home');
-  // Load live data from Google Sheet
+  document.getElementById('todayDate').textContent=new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  buildNav();
+  updateAdminUI();
+  goPage('home');
   loadGoogleSheetData();
 });
 </script>
