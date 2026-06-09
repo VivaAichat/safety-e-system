@@ -10,12 +10,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
-  --bg:#07090f;--surface:#0f1219;--card:#141922;--border:#1e2738;--borderHi:#2a3548;
-  --amber:#f59e0b;--amberBg:rgba(245,158,11,0.12);--red:#ef4444;--redBg:rgba(239,68,68,0.1);
-  --green:#10b981;--greenBg:rgba(16,185,129,0.1);--blue:#3b82f6;--blueBg:rgba(59,130,246,0.1);
-  --purple:#8b5cf6;--cyan:#06b6d4;--text:#e8edf5;--textSec:#8b95a8;--textMut:#5a6478;
+  --bg:#ffffff;--surface:#f4f6f9;--card:#ffffff;--border:#e4e8ef;--borderHi:#cfd6e0;
+  --amber:#b45309;--amberBg:rgba(217,119,6,0.10);--red:#dc2626;--redBg:rgba(220,38,38,0.08);
+  --green:#059669;--greenBg:rgba(5,150,105,0.10);--blue:#2563eb;--blueBg:rgba(37,99,235,0.08);
+  --purple:#7c3aed;--cyan:#0e8aa8;--text:#1b2433;--textSec:#5b6675;--textMut:#94a0b0;
   --font:'DM Sans','Noto Sans TC',sans-serif;--mono:'JetBrains Mono','Fira Code',monospace;
-  --shadow:0 4px 20px rgba(0,0,0,0.5);--radius:12px;
+  --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.08);--radius:12px;
 }
 *{margin:0;padding:0;box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
@@ -29,7 +29,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber)!important;box-
 a{color:var(--amber);text-decoration:none}
 
 /* SIDEBAR */
-.sidebar{width:230px;min-height:100vh;background:linear-gradient(180deg,#0b0e16,#111622);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;z-index:100;flex-shrink:0;transition:width .3s;overflow:hidden}
+.sidebar{width:230px;min-height:100vh;background:linear-gradient(180deg,#fbfcfd,#f4f6f9);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;z-index:100;flex-shrink:0;transition:width .3s;overflow:hidden}
 .sidebar.collapsed{width:56px}
 .sidebar-logo{padding:18px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10}
 .sidebar.collapsed .sidebar-logo{padding:18px 10px}
@@ -59,7 +59,7 @@ a{color:var(--amber);text-decoration:none}
 .grid{display:grid;gap:14px}.grid-4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .grid-3{grid-template-columns:repeat(3,1fr)}.grid-2{grid-template-columns:1fr 1fr}
 .grid-6{grid-template-columns:repeat(6,1fr)}.grid-5{grid-template-columns:repeat(5,1fr)}
-.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow)}
 .card-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)}
 .card-head h3{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
 .card-body{padding:10px 16px;max-height:320px;overflow:auto}
@@ -86,7 +86,7 @@ a{color:var(--amber);text-decoration:none}
 .field label{display:block;margin-bottom:5px;font-size:11px;font-weight:600;color:var(--textSec);letter-spacing:.5px}
 
 /* MODAL */
-.modal-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(6px)}
+.modal-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.45);backdrop-filter:blur(6px)}
 .modal-overlay.show{display:flex}
 .modal{background:var(--card);border-radius:16px;border:1px solid var(--border);width:92%;max-width:540px;max-height:88vh;overflow:auto;box-shadow:var(--shadow);animation:fi .25s ease}
 .modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border)}
@@ -97,7 +97,7 @@ a{color:var(--amber);text-decoration:none}
 .tbl{width:100%;border-collapse:collapse;font-size:12px}
 .tbl th{padding:10px 12px;text-align:left;color:var(--textMut);font-weight:600;font-size:10px;white-space:nowrap;border-bottom:2px solid var(--border)}
 .tbl td{padding:8px 12px;border-bottom:1px solid rgba(30,39,56,.3)}
-.tbl tr:hover{background:rgba(255,255,255,.02)}
+.tbl tr:hover{background:rgba(17,24,39,.025)}
 
 /* RICH EDITOR */
 .rich-editor{border:1px solid var(--border);border-radius:8px;overflow:hidden}
@@ -123,8 +123,8 @@ a{color:var(--amber);text-decoration:none}
 /* TOAST */
 .toast{position:fixed;bottom:22px;right:22px;z-index:99999;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:var(--shadow);animation:fi .25s ease;display:none}
 .toast.show{display:block}
-.toast.success{background:#064e3b;border:1px solid rgba(16,185,129,.2)}
-.toast.error{background:#7f1d1d;border:1px solid rgba(239,68,68,.2)}
+.toast.success{background:#e7f6ef;color:#0f7a55;border:1px solid rgba(5,150,105,.3)}
+.toast.error{background:#fdeaea;color:#b42318;border:1px solid rgba(220,38,38,.3)}
 
 /* GAUGE */
 .gauge-wrap{text-align:center}
@@ -138,6 +138,36 @@ a{color:var(--amber);text-decoration:none}
 /* Responsive */
 @media(max-width:1200px){.grid-6{grid-template-columns:repeat(3,1fr)}.grid-5{grid-template-columns:repeat(3,1fr)}.grid-3{grid-template-columns:1fr 1fr}}
 @media(max-width:768px){.sidebar{position:fixed;z-index:200}.sidebar.collapsed{width:0;border:none}.main{padding:14px}.grid-2,.grid-3{grid-template-columns:1fr}.grid-6,.grid-5{grid-template-columns:repeat(2,1fr)}.header{flex-direction:column;align-items:flex-start;gap:8px}}
+/* ===== KPI FORMS (white A4 document look + print isolation) ===== */
+.kpi-cardgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:22px}
+.kpi-doc{background:#fff;color:#000;border-radius:6px;padding:16px 18px;font-family:"Segoe UI",Arial,Helvetica,sans-serif;font-size:13px;max-width:900px;margin:0 auto;box-shadow:0 0 0 1px var(--border)}
+.kpi-doc h2{font-size:17px;text-align:center;margin:0 0 4px}
+.kpi-doc .kpi-head{position:relative;min-height:46px;margin-bottom:6px}
+.kpi-doc .kpi-head .kpi-logo{position:absolute;left:0;top:0;height:40px;width:auto}
+.kpi-doc .kpi-head h2{font-size:17px;text-align:center;margin:0;padding-top:8px}
+.kpi-doc .kpi-meta-line{text-align:center;font-size:10.5px;color:#333;margin-bottom:10px}
+.kpi-tbl{border-collapse:collapse;width:100%;table-layout:fixed;margin-bottom:8px}
+.kpi-tbl td,.kpi-tbl th{border:1px solid #000;padding:4px 6px;vertical-align:top;text-align:left;word-wrap:break-word;overflow-wrap:anywhere;font-size:12.5px}
+.kpi-tbl .hdr{background:#d9d9d9;font-weight:700;text-align:center}
+.kpi-tbl .sub{background:#efefef;font-weight:700}
+.kpi-tbl .lbl{background:#fafafa;font-weight:600}
+.kpi-tbl .ctr{text-align:center;vertical-align:middle}
+.kpi-tbl input.f{width:100%;border:none;background:transparent;font:inherit;padding:1px;color:#000}
+.kpi-tbl input.f:focus{outline:none;background:#eef6ff}
+.kpi-tbl textarea.f{width:100%;border:none;background:transparent;font:inherit;resize:vertical;min-height:28px;padding:2px;color:#000}
+.kpi-tbl textarea.f:focus{outline:none;background:#eef6ff}
+.kpi-tbl input[type=checkbox]{width:15px;height:15px;cursor:pointer}
+.kpi-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+@media print{
+  body{background:#fff !important}
+  .sidebar,.header,#adminBadge,.toast,.modal-overlay,.kpi-noprint,.loading-bar{display:none !important}
+  .main{padding:0 !important;max-width:none !important}
+  .page:not(#page-kpiforms){display:none !important}
+  #page-kpiforms{display:block !important}
+  .kpi-doc{box-shadow:none;max-width:none;padding:0;border-radius:0}
+  .kpi-tbl td,.kpi-tbl th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:A4 portrait;margin:6mm}
+}
 </style>
 </head>
 <body>
@@ -175,6 +205,7 @@ a{color:var(--amber);text-decoration:none}
   <div class="page" id="page-tools" hidden></div>
   <div class="page" id="page-tracking" hidden></div>
   <div class="page" id="page-schedule" hidden></div>
+  <div class="page" id="page-kpiforms" hidden></div>
 </div>
 
 <div class="modal-overlay" id="loginModal">
@@ -210,6 +241,7 @@ const TAB_NMDC_PENALTY = "NMDC penalty";
 const TAB_NMDC_NCR     = "NMDC NCR";
 // 危害種類/缺失統計只採計這三個來源；NMDC Penalty / NMDC NCR 一律不混入
 const SAFETY_SOURCES = ['SOC','TPC NCR','Gov'];
+const NMDC_LOGO = "data:image/jpeg;base64,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";
 
 let TEAM = ["Sam","Daniel","Yong","Jin","Ben","Elson","Jeffrey","Vic","Noah","Jet","Sue"];
 const CONTRACTORS = ["海義 HiE","美綺 Magitech","高虎 GAC","兆濰/茂富","天力 Tianli"];
@@ -238,6 +270,7 @@ let state = {
   tools: [{id:"tpc-def",name:"TPC 缺失單新增",desc:"新增TPC安全缺失改善單",icon:"⚠️",color:"var(--red)",type:"builtin"},{id:"sling-calc",name:"吊掛張力計算器",desc:"Sling Tension Calculator",icon:"🔧",color:"var(--purple)",type:"builtin"},{id:"gas-url",name:"GAS URL 設定",desc:"連接 Google Apps Script",icon:"🔗",color:"var(--textSec)",type:"builtin"}],
   schedule: {month:"2026-04",people:[]},
   leave: [],
+  kpiForms: {bsa:[], ptw:[], hip:[], risk:[]}, // KPI 表單提交紀錄
 };
 if(!state.schedule.people || state.schedule.people.length === 0) {
   state.schedule.people = TEAM.map(p => ({name:p, days:Array.from({length:30},(_,i)=>{const wd=new Date(2026,3,i+1).getDay();return wd===0||wd===6?"H":"R"})}));
@@ -754,7 +787,8 @@ const NAV = [
   {id:"home",label:"首頁 Home",icon:"🏠"},{id:"dashboard",label:"儀表板 Dashboard",icon:"📊"},
   {id:"deficiency",label:"缺失管理 Deficiency",icon:"⚠️"},
   {id:"tools",label:"工具 Tools",icon:"🔧"},{id:"tracking",label:"追蹤事項 Tracking",icon:"📋"},
-  {id:"schedule",label:"班表 Schedule",icon:"📅"}
+  {id:"schedule",label:"班表 Schedule",icon:"📅"},
+  {id:"kpiforms",label:"KPI 表單 Forms",icon:"📝"}
 ];
 
 function autoSeverity(desc,cat){
@@ -791,6 +825,7 @@ function renderPage(id){
     case'deficiency':renderDeficiency();break;
     case'tools':renderTools();break;case'tracking':renderTracking();break;
     case'schedule':renderSchedule();break;
+    case'kpiforms':renderKpiForms();break;
   }
 }
 
@@ -857,7 +892,7 @@ function renderHome(){
       if(lmc) new Chart(lmc,{type:'bar',data:{labels:kpi.monthlyManpower.map(m=>m.month),datasets:[
         {label:'台中',data:kpi.monthlyManpower.map(m=>m.taichung),backgroundColor:'#f59e0b',borderRadius:4},
         {label:'通霄',data:kpi.monthlyManpower.map(m=>m.tongxiao),backgroundColor:'#10b981',borderRadius:4}
-      ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{stacked:true,ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}}},plugins:{legend:{labels:{color:'#8b95a8',font:{size:10}}}}}});
+      ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,ticks:{color:'#5b6675',font:{size:10}},grid:{color:'#e4e8ef'}},y:{stacked:true,ticks:{color:'#5b6675',font:{size:10}},grid:{color:'#e4e8ef'}}},plugins:{legend:{labels:{color:'#5b6675',font:{size:10}}}}}});
     },150);
   }
 }
@@ -1031,8 +1066,8 @@ function renderDashboard(){
   setTimeout(()=>{
     if(trendChart)trendChart.destroy();if(catChart)catChart.destroy();
     const tc=document.getElementById('trendCanvas');const cc=document.getElementById('catCanvas');
-    if(tc && kpi.monthly.length > 0) trendChart=new Chart(tc,{type:'line',data:{labels:kpi.monthly.map(m=>m.m),datasets:[{label:'SOC',data:kpi.monthly.map(m=>m.soc),borderColor:'#f59e0b',borderWidth:2,tension:.4,pointRadius:3,fill:false},{label:'NCR',data:kpi.monthly.map(m=>m.ncr),borderColor:'#ef4444',borderWidth:2,tension:.4,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b95a8',font:{size:10}}}},scales:{x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}},y:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}}}}});
-    else if(tc) trendChart=new Chart(tc,{type:'line',data:{labels:['無資料'],datasets:[{data:[0],borderColor:'#5a6478',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+    if(tc && kpi.monthly.length > 0) trendChart=new Chart(tc,{type:'line',data:{labels:kpi.monthly.map(m=>m.m),datasets:[{label:'SOC',data:kpi.monthly.map(m=>m.soc),borderColor:'#f59e0b',borderWidth:2,tension:.4,pointRadius:3,fill:false},{label:'NCR',data:kpi.monthly.map(m=>m.ncr),borderColor:'#ef4444',borderWidth:2,tension:.4,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#5b6675',font:{size:10}}}},scales:{x:{ticks:{color:'#5b6675',font:{size:10}},grid:{color:'#e4e8ef'}},y:{ticks:{color:'#5b6675',font:{size:10}},grid:{color:'#e4e8ef'}}}}});
+    else if(tc) trendChart=new Chart(tc,{type:'line',data:{labels:['無資料'],datasets:[{data:[0],borderColor:'#5b6675',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
 
     const topCats = kpi.socByCategory.slice(0,8);
     const totalCats = kpi.socByCategory.reduce((s,c)=>s+c.value,0);
@@ -1043,16 +1078,16 @@ function renderDashboard(){
         responsive:true,maintainAspectRatio:false,indexAxis:'y',
         layout:{padding:{right:60}},
         plugins:{ legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>{const pct=totalCats>0?(ctx.parsed.x/totalCats*100).toFixed(1):0;return `${ctx.parsed.x} 件 (${pct}%)`;}}} },
-        scales:{ x:{ticks:{color:'#5a6478',font:{size:10}},grid:{color:'#1e2738'}}, y:{ticks:{color:'#8b95a8',font:{size:10}},grid:{display:false}} },
+        scales:{ x:{ticks:{color:'#5b6675',font:{size:10}},grid:{color:'#e4e8ef'}}, y:{ticks:{color:'#5b6675',font:{size:10}},grid:{display:false}} },
         animation:{onComplete:function(){
           const chart=this; const ctx=chart.ctx;
           ctx.font='bold 10px DM Sans, sans-serif';
-          ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#e8edf5';
+          ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#1b2433';
           chart.data.datasets[0].data.forEach((value, idx) => { const meta = chart.getDatasetMeta(0).data[idx]; const pct = totalCats > 0 ? (value/totalCats*100).toFixed(1) : 0; ctx.fillText(`${value} (${pct}%)`, meta.x + 6, meta.y); });
         }}
       }
     });
-    else if(cc) catChart=new Chart(cc,{type:'bar',data:{labels:['無資料'],datasets:[{data:[0],backgroundColor:['#5a6478']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+    else if(cc) catChart=new Chart(cc,{type:'bar',data:{labels:['無資料'],datasets:[{data:[0],backgroundColor:['#5b6675']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
   },100);
 }
 
@@ -1541,8 +1576,493 @@ function saveTool(){
 }
 function delTool(id){ if(!confirm('刪除此工具？'))return; state.tools=state.tools.filter(t=>t.id!==id);saveState();toast('已刪除');renderTools(); }
 
+// ═══════════════════════════════════════════════════════════════
+// KPI FORMS MODULE (BSA / PTW Audit / HIP / Risk Assessment)
+// ═══════════════════════════════════════════════════════════════
+const KPI_FORMS = {
+  bsa: {
+    code:'BSA', title:'Behavioral Safety Audit Report', statType:'category',
+    meta:[
+      {k:'site',label:'Site'},{k:'date',label:'Date',type:'date'},{k:'during',label:'During'},
+      {k:'persons',label:'No. of persons Audited'},{k:'work',label:'Type of Work'}
+    ],
+    categories:[
+      {name:'Reaction of people', items:['Changing position','Stopping work','Rearranging job','Hiding or dodging','Changing tools','Applying lockout','Adjusting PPE']},
+      {name:'Positions of people', items:['Striking against','Caught in, or between','Inhaling / absorbing','Electricity','Falling','Struck by']},
+      {name:'Personal protection equipment', items:['Face & respiratory','Head- Body','Ears & Eyes','Hands & Arms','Feet & Legs']},
+      {name:'Tools and equipment', items:['Right for the job','Used Correctly','In safe conditions','Harnesses','Barricades & warning lights','Pre-job safety checks']},
+      {name:'Procedures', items:['Standard established & communicated','Standard / adequate for the job','Standard being maintained','Fire watch','Gas testing','Permit to work','Emergency provision']},
+      {name:'Orderliness / tidiness', items:['Standard established & understood','Hall & passageways','Disorganized tools & bench','Materials storage','Obstructions & leaners','Stair / Platforms']}
+    ]
+  },
+  ptw: {
+    code:'PTW', title:'Permit To Work (PTW) Audit Checklist', statType:'count',
+    meta:[
+      {k:'area',label:'Area/Location'},{k:'project',label:'Project Name & No'},{k:'ptype',label:'Permit Type'},
+      {k:'pno',label:'Permit No'},{k:'activity',label:'Activity'},{k:'date',label:'Date',type:'date'}
+    ],
+    sections:[
+      {name:'Permit Review', items:[
+        'Is the permit TYPE selected appropriate for the Task?',
+        "Are the work description and equipment/area to be 'worked on' clearly mentioned in the permit?",
+        'Are time and date clearly mentioned and revalidated?',
+        'Have permit copies been properly distributed, and displayed where required?',
+        'Have all relevant parties endorsed the permit?']},
+      {name:'Hazards & Control Measures', items:[
+        'Have all the personnel endorsed this permit has valid NPCC PTW training?',
+        'Are all hazards directly applicable to the scope of work identified?',
+        'Are Risk assessment and HIP attached along with the permit and communicated with work crew?',
+        'Are the control measures identified in Risk Assessment and HIP adequately implemented at the work site?',
+        'Is there any SIMOPS with other permits or activities? Are there any concerns on SIMOPS management?',
+        'Are the applicable complimentary permits / certificates attached with permit?',
+        'Are all isolation points are tagged and locked? (If applicable)?',
+        'Is the work performed in compliance with all the PTW specifics and in a safe manner?',
+        'Are necessary PPEs provided for the scope of work and used properly?',
+        'Have gas tests been undertaken and valid for this period?',
+        'Is Gas testing done by competent personnel?',
+        'Is gas monitor operational and has valid calibration?']},
+      {name:'Hand over / Work completion', items:[
+        'Has site been left in safe and tidy condition?',
+        'For work extending across shifts, is the permit handed over between supervisors at shift change?',
+        'Has the issuing authority and responsible supervisor duly signed final closeout/work completion?']}
+    ],
+    sign:[{k:'auditedBy',label:'Audited By / Designation'},{k:'verifiedBy',label:'Verified by / Designation'}]
+  },
+  hip: {
+    code:'HIP', title:'HIP Assessment Quality Check', statType:'count', docmeta:'HSE-002-28-H | Rev.01 | The completed assessment Form shall be shared with the Operational Sectional Head and HSE Department.',
+    meta:[
+      {k:'person',label:'Person Audited (Name)'},{k:'badge',label:'Badge No'},
+      {k:'area',label:'Work Area / Location'},{k:'date',label:'Date',type:'date'},
+      {k:'activity',label:'Activity Description'},{k:'dept',label:'Department'}
+    ],
+    sections:[
+      {name:'Checklist', items:[
+        'Supervisor identified and made a correct entry of the task to the Form.',
+        'All potential risks were identified based on the activity and Discussed with the involved employees.',
+        'HIP identified all necessary controls to eliminate or mitigate the Hazards.',
+        'HIP is specific to the task.',
+        'Specific instructions were mentioned in the HIP Form.',
+        'Field observations at job locations indicate all employees were Aware of the HIP discussion.',
+        'HIP forms signed by the Supervisor, including all workers.',
+        'HIP training is provided to the Supervisor.',
+        'HIP form is readily available with the Supervisor.']}
+    ],
+    noRemark:true,
+    sign:[{k:'completedBy',label:'Completed By (Name)'},{k:'ackBy',label:'Acknowledged By / Supervisor (Name)'}]
+  },
+  risk: {
+    code:'RA', title:'Risk Assessment Implementation Checklist', statType:'count',
+    meta:[
+      {k:'area',label:'Area/Location'},{k:'project',label:'Project No & Name'},{k:'activity',label:'Activity'},
+      {k:'date',label:'Date of Inspection',type:'date'},{k:'time',label:'Time'},{k:'raref',label:'Risk Assessment Ref. Date & Revn'}
+    ],
+    sections:[
+      {name:'Response by HSEO', items:[
+        'Is the Risk Assessment / Risk Register readily available at site?',
+        'Are the hazards and control measures associated with the activity communicated to the workforce? (Evidence of HIP/Pre-Job meeting etc.)',
+        'Are the control measures implemented in accordance with the risk assessment? If not specify',
+        'Is there any SIMOPS with other activities? Any concerns on SIMOPS management? Have this been communicated?',
+        'Any additional mitigation recommendations from the supervisor/workforce beyond the risk register? If yes specify',
+        'Any changes/updates to the activity or environment, or additional control measures recommended on top of the existing risk register? If yes specify',
+        'Does the activity require special precautions? (e.g. additional PPE / mitigation / permits / plans). If yes specify',
+        'Any other comments']}
+    ],
+    sign:[{k:'verifiedBy',label:'Verified by: HSE Officer / Name'},{k:'ackBy',label:'Acknowledged by: Supervisor / Name'}]
+  }
+};
+const KPI_ORDER = ['bsa','ptw','hip','risk'];
+let kpiOpen = null;       // which form is open for filling (null = list/stats view)
+let kpiStatView = 'bsa';  // which form's stats to show in list view
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Build a fillable form (white A4 look) ──
+function buildKpiFormHtml(type){
+  const F = KPI_FORMS[type];
+  let metaRows = '';
+  for(let i=0;i<F.meta.length;i+=2){
+    const a=F.meta[i], b=F.meta[i+1];
+    metaRows += `<tr><td class="lbl">${esc(a.label)}</td><td><input class="f" id="kpi_m_${a.k}" type="${a.type==='date'?'date':'text'}"></td>`
+      + (b?`<td class="lbl">${esc(b.label)}</td><td><input class="f" id="kpi_m_${b.k}" type="${b.type==='date'?'date':'text'}"></td>`:`<td></td><td></td>`)
+      + `</tr>`;
+  }
+  let body = `<table class="kpi-tbl"><colgroup><col style="width:22%"><col style="width:28%"><col style="width:22%"><col style="width:28%"></colgroup>${metaRows}</table>`;
+
+  if(type==='bsa'){
+    let rows='';
+    F.categories.forEach((cat,ci)=>{
+      cat.items.forEach((it,ii)=>{
+        rows += `<tr class="kpi-frow">`;
+        if(ii===0){
+          rows += `<td rowspan="${cat.items.length}"><textarea class="f" id="kpi_bsa_rem_${ci}" style="min-height:${cat.items.length*16}px"></textarea></td>`
+                + `<td class="sub ctr" rowspan="${cat.items.length}">${esc(cat.name)}</td>`;
+        }
+        rows += `<td class="ctr"><input type="checkbox" class="kpi-chk" data-cat="${ci}" data-item="${ii}"></td><td>${esc(it)}</td></tr>`;
+      });
+    });
+    body += `<table class="kpi-tbl"><colgroup><col style="width:26%"><col style="width:19%"><col style="width:8%"><col style="width:47%"></colgroup>`
+      + `<tr><td class="hdr" colspan="4">Safety Deviation Observed</td></tr>`
+      + `<tr><td class="hdr">Observation / Remarks</td><td class="hdr">Category</td><td class="hdr">Mark</td><td class="hdr">Item</td></tr>`
+      + rows + `</table>`;
+    body += `<table class="kpi-tbl" style="margin-top:8px"><colgroup><col style="width:22%"><col style="width:30%"><col style="width:48%"></colgroup>`
+      + `<tr><td class="hdr" colspan="3">Recognition for Exceptional HSE Performance</td></tr>`
+      + `<tr><td class="sub ctr">Type of Work</td><td class="sub ctr">Name of Person</td><td class="sub ctr">Exceptional Performance</td></tr>`
+      + `<tr class="kpi-frow"><td><input class="f" type="text"></td><td><input class="f" type="text"></td><td><input class="f" type="text"></td></tr>`
+      + `<tr class="kpi-frow"><td><input class="f" type="text"></td><td><input class="f" type="text"></td><td><input class="f" type="text"></td></tr>`
+      + `<tr class="kpi-frow"><td><input class="f" type="text"></td><td><input class="f" type="text"></td><td><input class="f" type="text"></td></tr></table>`;
+    body += `<table class="kpi-tbl" style="margin-top:8px"><colgroup><col style="width:22%"><col style="width:20%"><col style="width:58%"></colgroup>`
+      + `<tr><td class="hdr" colspan="3">Auditor's follow-up action</td></tr>`
+      + `<tr><td class="sub ctr">Type of Work</td><td class="sub ctr">Follow-up date</td><td class="sub ctr">Problems / Action Required</td></tr>`
+      + `<tr class="kpi-frow"><td><input class="f" type="text" value="N/A"></td><td><input class="f" type="text" value="N/A"></td><td><input class="f" type="text" value="N/A"></td></tr>`
+      + `<tr class="kpi-frow"><td><input class="f" type="text"></td><td><input class="f" type="text"></td><td><input class="f" type="text"></td></tr></table>`;
+    body += `<table class="kpi-tbl" style="margin-top:8px"><colgroup><col style="width:22%"><col style="width:14%"><col style="width:64%"></colgroup>`
+      + `<tr><td class="lbl ctr" rowspan="3" style="vertical-align:middle">Audit Team Member(s)</td><td class="lbl">Name :</td><td><input class="f" type="text"></td></tr>`
+      + `<tr><td class="lbl">Name :</td><td><input class="f" type="text"></td></tr>`
+      + `<tr><td class="lbl">Name :</td><td><input class="f" type="text"></td></tr></table>`;
+  } else if(type==='hip'){
+    const items = F.sections[0].items;
+    const bRows = items.map((q,i)=>`<tr class="kpi-frow"><td class="ctr">${i+1}</td><td>${esc(q)}</td><td class="ctr"><input type="checkbox" class="kpi-yn" data-q="${i}" data-v="yes"></td><td class="ctr"><input type="checkbox" class="kpi-yn" data-q="${i}" data-v="no"></td></tr>`).join('');
+    body = `<table class="kpi-tbl"><colgroup><col style="width:22%"><col style="width:28%"><col style="width:18%"><col style="width:32%"></colgroup>`
+      + `<tr><td class="hdr" colspan="4">PART A: Assessment Details</td></tr>`
+      + `<tr><td class="lbl">Person Audited (Name)</td><td><input class="f" id="kpi_m_person" type="text"></td><td class="lbl">Badge No</td><td><input class="f" id="kpi_m_badge" type="text"></td></tr>`
+      + `<tr><td class="lbl">Work Area / Location</td><td><input class="f" id="kpi_m_area" type="text"></td><td class="lbl">Date</td><td><input class="f" id="kpi_m_date" type="date"></td></tr>`
+      + `<tr><td class="lbl">Activity Description</td><td><input class="f" id="kpi_m_activity" type="text"></td><td class="lbl">Department</td><td><input class="f" id="kpi_m_dept" type="text"></td></tr>`
+      + `<tr><td class="hdr" colspan="4">PART B: Checklist</td></tr></table>`
+      + `<table class="kpi-tbl"><colgroup><col style="width:7%"><col style="width:73%"><col style="width:10%"><col style="width:10%"></colgroup>`
+      + `<tr><td class="hdr">Item</td><td class="hdr">Quality Element</td><td class="hdr">Yes</td><td class="hdr">No</td></tr>`
+      + bRows
+      + `<tr><td class="lbl" colspan="4">Comments / Observations: Specify the observations identified on the above elements and any other relevant comments as applicable.</td></tr>`
+      + `<tr class="kpi-frow"><td colspan="4"><textarea class="f" id="kpi_hip_comments" style="min-height:54px"></textarea></td></tr></table>`
+      + `<table class="kpi-tbl" style="margin-top:8px"><colgroup><col style="width:13%"><col style="width:21%"><col style="width:13%"><col style="width:19%"><col style="width:13%"><col style="width:21%"></colgroup>`
+      + `<tr><td class="hdr" colspan="6">PART C: Completed By:</td></tr>`
+      + `<tr><td class="lbl">Name</td><td><input class="f" id="kpi_m_completedBy" type="text"></td><td class="lbl">Designation</td><td><input class="f" type="text"></td><td class="lbl">B / ID No</td><td><input class="f" type="text"></td></tr>`
+      + `<tr><td class="lbl">Company</td><td><input class="f" type="text"></td><td class="lbl">Signature</td><td><input class="f" type="text"></td><td class="lbl">Date</td><td><input class="f" type="text"></td></tr>`
+      + `<tr><td class="hdr" colspan="6">PART D: Acknowledged By: (Must be completed by the Supervisor)</td></tr>`
+      + `<tr><td class="lbl">Name</td><td><input class="f" id="kpi_m_ackBy" type="text"></td><td class="lbl">Designation</td><td><input class="f" type="text"></td><td class="lbl">B / ID No</td><td><input class="f" type="text"></td></tr>`
+      + `<tr><td class="lbl">Company</td><td><input class="f" type="text"></td><td class="lbl">Signature</td><td><input class="f" type="text"></td><td class="lbl">Date</td><td><input class="f" type="text"></td></tr>`
+      + `<tr><td class="lbl" colspan="6">Additional Comments / Remarks (If any):</td></tr>`
+      + `<tr class="kpi-frow"><td colspan="6"><textarea class="f" id="kpi_hip_addl" style="min-height:54px"></textarea></td></tr></table>`;
+  } else {
+    // Yes/No checklist forms
+    const remHdr = F.noRemark ? '' : '<td class="hdr" style="width:30%">Remarks</td>';
+    let qi = 0, rows = '';
+    F.sections.forEach(sec=>{
+      if(sec.name) rows += `<tr><td class="sub" colspan="${F.noRemark?3:4}">${esc(sec.name)}</td></tr>`;
+      sec.items.forEach(q=>{
+        const idx = qi++;
+        rows += `<tr class="kpi-frow"><td><b>${idx+1}.</b> ${esc(q)}</td>`
+          + `<td class="ctr"><input type="checkbox" class="kpi-yn" data-q="${idx}" data-v="yes"></td>`
+          + `<td class="ctr"><input type="checkbox" class="kpi-yn" data-q="${idx}" data-v="no"></td>`
+          + (F.noRemark?'':`<td><input class="f" id="kpi_rmk_${idx}" type="text"></td>`)
+          + `</tr>`;
+      });
+    });
+    body += `<table class="kpi-tbl"><colgroup><col style="width:${F.noRemark?'78%':'52%'}"><col style="width:8%"><col style="width:8%">${F.noRemark?'':'<col style="width:32%">'}</colgroup>`
+      + `<tr><td class="hdr">Description</td><td class="hdr">Yes</td><td class="hdr">No</td>${remHdr}</tr>`
+      + rows + `</table>`;
+    if(F.sign){
+      body += `<table class="kpi-tbl" style="margin-top:8px"><colgroup><col style="width:60%"><col style="width:40%"></colgroup>`
+        + F.sign.map(s=>`<tr><td class="lbl">${esc(s.label)} : <input class="f" id="kpi_m_${s.k}" type="text"></td><td class="lbl">Signature &amp; Date : <input class="f" type="text"></td></tr>`).join('')
+        + `</table>`;
+    }
+  }
+
+  const dm = F.docmeta ? `<div class="kpi-meta-line">${esc(F.docmeta)}</div>` : '';
+  return `<div id="kpiPrintArea" class="kpi-doc"><div class="kpi-head"><img class="kpi-logo" src="${NMDC_LOGO}" alt="NMDC Energy"><h2>${esc(F.title)}</h2></div>${dm}${body}</div>`;
+}
+
+function openKpiForm(type){ kpiOpen = type; renderKpiForms(); window.scrollTo(0,0); }
+function closeKpiForm(){ kpiOpen = null; renderKpiForms(); }
+
+// ── Read the open form into a submission record ──
+function collectKpiSubmission(type){
+  const F = KPI_FORMS[type];
+  const host = document.getElementById('kpiPrintArea');
+  if(!host) return null;
+  const meta = {};
+  F.meta.forEach(m=>{ const el=host.querySelector('#kpi_m_'+m.k); meta[m.k]= el?el.value.trim():''; });
+  if(F.sign) F.sign.forEach(s=>{ const el=host.querySelector('#kpi_m_'+s.k); if(el) meta[s.k]=el.value.trim(); });
+  const dateStr = normalizeFlexDate(meta.date) || today();
+  const rec = { id: Date.now(), date: dateStr, code: F.code, meta };
+
+  if(type==='bsa'){
+    const checks = [];
+    host.querySelectorAll('.kpi-chk').forEach(cb=>{ if(cb.checked){ checks.push({cat:+cb.dataset.cat, item:+cb.dataset.item}); } });
+    rec.checks = checks;
+    rec.persons = parseInt(meta.persons)||0;
+  } else {
+    const answers = [];
+    const total = F.sections.reduce((n,s)=>n+s.items.length,0);
+    for(let i=0;i<total;i++){
+      const yes = host.querySelector(`.kpi-yn[data-q="${i}"][data-v="yes"]`);
+      const no  = host.querySelector(`.kpi-yn[data-q="${i}"][data-v="no"]`);
+      const rmk = host.querySelector('#kpi_rmk_'+i);
+      answers.push({ q:i, yes: yes?yes.checked:false, no: no?no.checked:false, remark: rmk?rmk.value.trim():'' });
+    }
+    rec.answers = answers;
+  }
+  return rec;
+}
+
+function saveKpiSubmission(){
+  const type = kpiOpen; if(!type) return;
+  const rec = collectKpiSubmission(type);
+  if(!rec) return;
+  if(type==='bsa' && rec.checks.length===0){ if(!confirm('沒有勾選任何 Item，仍要儲存這份 BSA 嗎？')) return; }
+  if(!state.kpiForms[type]) state.kpiForms[type]=[];
+  state.kpiForms[type].unshift(rec);
+  saveState();
+  toast('已儲存並計入統計 ✓');
+  kpiOpen = null;
+  renderKpiForms();
+  gasAppend('kpi_'+type, kpiFlat(type, rec));
+}
+
+function delKpiSubmission(type, id){
+  if(!confirm('刪除這筆紀錄？統計會一併扣除。')) return;
+  state.kpiForms[type] = (state.kpiForms[type]||[]).filter(r=>r.id!==id);
+  saveState(); toast('已刪除'); renderKpiForms(); gasDeleteRow('kpi_'+type, id);
+}
+
+function _kpiPxPerMm(){ var p=document.createElement('div'); p.style.cssText='width:100mm;height:1mm;position:absolute;left:-9999px;top:0'; document.body.appendChild(p); var px=p.getBoundingClientRect().width/100; document.body.removeChild(p); return px; }
+function prepKpiPrint(){
+  var doc=document.getElementById('kpiPrintArea'); if(!doc) return;
+  var pxmm=_kpiPxPerMm(), m=6, availH=(297-2*m)*pxmm, availWmm=210-2*m;
+  doc.style.zoom=''; doc.style.width=availWmm+'mm';
+  var rows=doc.querySelectorAll('.kpi-frow'); rows.forEach(function(r){ r.style.height=''; });
+  var h=doc.scrollHeight;
+  if(h>availH+1){
+    // Fit onto ONE page while keeping full printed width: widen the document by 1/s then
+    // zoom by s, so the printed width maps back to the full page and only height compresses
+    // (text scales uniformly, no distortion, no left/right gaps).
+    var s=availH/h;
+    for(var i=0;i<5;i++){
+      doc.style.width=(availWmm/s)+'mm';
+      var hh=doc.scrollHeight; var ns=availH/hh;
+      if(Math.abs(ns-s)<0.005){ s=ns; break; }
+      s=ns;
+    }
+    s=Math.max(0.5, Math.min(s,1));
+    doc.style.width=(availWmm/s)+'mm';
+    doc.style.zoom=s;
+  } else if(rows.length){
+    var leftover=availH-h-6; if(leftover>0){ var add=leftover/rows.length; rows.forEach(function(r){ r.style.height=(r.offsetHeight+add)+'px'; }); }
+  }
+}
+function rzKpiPrint(){ var doc=document.getElementById('kpiPrintArea'); if(!doc) return; doc.style.zoom=''; doc.style.width=''; doc.querySelectorAll('.kpi-frow').forEach(function(r){ r.style.height=''; }); }
+window.addEventListener('beforeprint', prepKpiPrint);
+window.addEventListener('afterprint', rzKpiPrint);
+function printKpiForm(){ prepKpiPrint(); window.print(); }
+
+// ── GAS sync (flat rows: id,date,code,summary,dataJson) — best effort ──
+function kpiSummaryText(type, rec){
+  const m = rec.meta||{};
+  if(type==='bsa') return [m.site,m.work].filter(Boolean).join(' / ');
+  if(type==='ptw') return [m.area,m.pno].filter(Boolean).join(' / ');
+  if(type==='hip') return [m.person,m.area].filter(Boolean).join(' / ');
+  return [m.area,m.activity].filter(Boolean).join(' / ');
+}
+function kpiFlat(type, r){
+  return { id:r.id, date:r.date, code:r.code, summary:kpiSummaryText(type,r),
+    dataJson: JSON.stringify({meta:r.meta, checks:r.checks, answers:r.answers, persons:r.persons}) };
+}
+// Append a single record (multi-user safe: each submission is its own row; GAS serialises with a lock)
+async function gasAppend(tab, row){
+  try{
+    const resp = await fetch(GAS_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({action:'append', tab:tab, row:row})});
+    const j = await resp.json(); return j.success;
+  }catch(e){ console.warn('gasAppend failed', e); return false; }
+}
+async function gasDeleteRow(tab, id){
+  try{
+    const resp = await fetch(GAS_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({action:'delete', tab:tab, id:id})});
+    const j = await resp.json(); return j.success;
+  }catch(e){ console.warn('gasDeleteRow failed', e); return false; }
+}
+async function loadKpiFromGas(){
+  for(const type of KPI_ORDER){
+    try{
+      const rows = await gasRead('kpi_'+type);
+      if(rows && rows.length>0){
+        state.kpiForms[type] = rows.map(r=>{
+          let d={}; try{ d=JSON.parse(r.dataJson||'{}'); }catch(e){}
+          return { id:r.id||Date.now()+Math.random(), date:r.date||'', code:r.code||KPI_FORMS[type].code, meta:d.meta||{}, checks:d.checks, answers:d.answers, persons:d.persons };
+        });
+      }
+    }catch(e){ /* tab may not exist; keep local */ }
+  }
+  saveState();
+  if(currentPage==='kpiforms') renderKpiForms();
+}
+
+// ── Statistics ──
+function isoWeek(dateStr){
+  if(!dateStr) return '';
+  const p=String(dateStr).substring(0,10).split('-'); if(p.length<3) return '';
+  const d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2])); if(isNaN(d.getTime())) return '';
+  const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3);
+  const ft=new Date(Date.UTC(d.getUTCFullYear(),0,4)); const fd=(ft.getUTCDay()+6)%7; ft.setUTCDate(ft.getUTCDate()-fd+3);
+  const wk=1+Math.round((d-ft)/6048e5);
+  return d.getUTCFullYear()+'-W'+String(wk).padStart(2,'0');
+}
+let kpiPeriod='month';
+function kpiInPeriod(dateStr){
+  if(kpiPeriod==='all') return true;
+  if(!dateStr) return false;
+  const now=today();
+  return kpiPeriod==='week' ? isoWeek(dateStr)===isoWeek(now) : String(dateStr).substring(0,7)===now.substring(0,7);
+}
+function kpiPeriodLabel(){ return kpiPeriod==='week'?('本週 '+isoWeek(today())) : kpiPeriod==='month'?('本月 '+today().substring(0,7)) : '全部累計'; }
+function kpiBsaTally(filterFn){
+  const F=KPI_FORMS.bsa; let arr=state.kpiForms.bsa||[]; if(filterFn) arr=arr.filter(filterFn);
+  const cats=F.categories.map(c=>({name:c.name,total:0,items:c.items.map(it=>({name:it,count:0}))}));
+  let persons=0;
+  arr.forEach(r=>{ persons+=(parseInt(r.persons)||0); (r.checks||[]).forEach(ch=>{ const c=cats[ch.cat]; if(c&&c.items[ch.item]){ c.items[ch.item].count++; c.total++; } }); });
+  return {cats,persons,audits:arr.length};
+}
+function kpiHistory(mode,limit){
+  const map={};
+  KPI_ORDER.forEach(t=>(state.kpiForms[t]||[]).forEach(r=>{ const k=mode==='week'?isoWeek(r.date):(String(r.date||'').substring(0,7)); if(!k) return; if(!map[k]) map[k]={key:k,bsa:0,ptw:0,hip:0,risk:0}; map[k][t]=(map[k][t]||0)+1; }));
+  return Object.values(map).sort((a,b)=>b.key.localeCompare(a.key)).slice(0,limit);
+}
+
+// ── Page render ──
+function renderKpiForms(){
+  const el = document.getElementById('page-kpiforms');
+
+  if(kpiOpen){
+    const F = KPI_FORMS[kpiOpen];
+    el.innerHTML = `
+      <div class="kpi-toolbar kpi-noprint">
+        <button class="btn btn-ghost" onclick="closeKpiForm()">← 返回</button>
+        <div style="font-weight:700;font-size:14px;flex:1">${esc(F.title)}</div>
+        <button class="btn btn-def" onclick="printKpiForm()">🖨 列印紙本</button>
+        <button class="btn btn-pri" onclick="saveKpiSubmission()">💾 儲存並計入統計</button>
+      </div>
+      <p style="font-size:11px;color:var(--textMut);margin:-6px 0 12px" class="kpi-noprint">填寫後可直接「列印紙本」（白底 A4），或「儲存並計入統計」。${kpiOpen==='bsa'?'BSA 會依勾選的 Category／Item 累計次數；':'本表單以份數統計；'}列印時會自動隱藏側邊欄與深色介面。</p>
+      ${buildKpiFormHtml(kpiOpen)}
+      <div class="kpi-toolbar kpi-noprint" style="margin-top:14px;justify-content:flex-end">
+        <button class="btn btn-def" onclick="printKpiForm()">🖨 列印紙本</button>
+        <button class="btn btn-pri" onclick="saveKpiSubmission()">💾 儲存並計入統計</button>
+      </div>`;
+    return;
+  }
+
+  const cards = KPI_ORDER.map(t=>{
+    const F=KPI_FORMS[t], arr=state.kpiForms[t]||[];
+    const pc=arr.filter(r=>kpiInPeriod(r.date)).length;
+    return `<div class="card" style="padding:16px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:2px">${F.code}</div>
+      <div style="font-size:11px;color:var(--textMut);margin-bottom:10px;min-height:30px">${esc(F.title)}</div>
+      <div style="display:flex;gap:14px;margin-bottom:12px">
+        <div><div style="font-size:9px;color:var(--textMut)">${kpiPeriod==='all'?'總份數':'本期份數'}</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--amber)">${pc}</div></div>
+        <div><div style="font-size:9px;color:var(--textMut)">總計</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--textSec)">${arr.length}</div></div>
+      </div>
+      <button class="btn btn-pri btn-sm" style="width:100%;justify-content:center" onclick="openKpiForm('${t}')">📝 填寫 / 列印</button>
+    </div>`;
+  }).join('');
+
+  const bt = kpiBsaTally(r=>kpiInPeriod(r.date));
+  let bsaRows='';
+  bt.cats.forEach(c=>{
+    c.items.forEach((it,ii)=>{
+      bsaRows += `<tr>`;
+      if(ii===0) bsaRows += `<td rowspan="${c.items.length}" style="font-weight:700;color:var(--amber);vertical-align:middle">${esc(c.name)}<div style="font-size:10px;color:var(--textMut);font-weight:500">小計 ${c.total}</div></td>`;
+      bsaRows += `<td>${esc(it.name)}</td><td style="text-align:right;font-family:var(--mono);font-weight:${it.count?'700':'400'};color:${it.count?'var(--text)':'var(--textMut)'}">${it.count||''}</td></tr>`;
+    });
+  });
+
+  const countRows = ['ptw','hip','risk'].map(t=>{
+    const F=KPI_FORMS[t], arr=state.kpiForms[t]||[];
+    const pc=arr.filter(r=>kpiInPeriod(r.date)).length;
+    return `<tr><td style="font-weight:600">${F.code} <span style="color:var(--textMut);font-weight:400">${esc(F.title)}</span></td>
+      <td style="text-align:center;font-family:var(--mono);font-weight:700;color:var(--green)">${pc}</td>
+      <td style="text-align:center;font-family:var(--mono)">${arr.length}</td></tr>`;
+  }).join('');
+
+  const histRows=(mode,limit)=>{
+    const rows=kpiHistory(mode,limit);
+    if(!rows.length) return '<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--textMut)">尚無紀錄</td></tr>';
+    return rows.map(r=>`<tr><td style="font-weight:600;white-space:nowrap">${r.key}</td>
+      <td style="text-align:center;font-family:var(--mono);color:var(--amber);font-weight:700">${r.bsa||''}</td>
+      <td style="text-align:center;font-family:var(--mono)">${r.ptw||''}</td>
+      <td style="text-align:center;font-family:var(--mono)">${r.hip||''}</td>
+      <td style="text-align:center;font-family:var(--mono)">${r.risk||''}</td></tr>`).join('');
+  };
+
+  let recent = [];
+  KPI_ORDER.forEach(t=>(state.kpiForms[t]||[]).forEach(r=>recent.push({t,r})));
+  recent.sort((a,b)=>(b.r.id||0)-(a.r.id||0));
+  recent = recent.slice(0,12);
+  const recentRows = recent.length? recent.map(x=>`
+    <tr><td style="white-space:nowrap">${x.r.date||'-'}</td>
+      <td>${KPI_FORMS[x.t].code}</td>
+      <td>${x.t==='bsa'?('勾選 '+((x.r.checks||[]).length)+' 項'+(x.r.persons?(' · '+x.r.persons+'人'):'')):esc(kpiSummaryText(x.t,x.r))||'-'}</td>
+      <td style="text-align:right">${isAdmin?`<button class="btn-ghost btn-sm" onclick="delKpiSubmission('${x.t}',${x.r.id})">🗑</button>`:''}</td></tr>`).join('')
+    : '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--textMut)">尚無紀錄</td></tr>';
+
+  const tbtn=(v,l)=>`<button class="pill-btn" style="background:${kpiPeriod===v?'var(--amberBg)':'var(--card)'};color:${kpiPeriod===v?'var(--amber)':'var(--textSec)'};border:1px solid var(--border)" onclick="kpiPeriod='${v}';renderKpiForms()">${l}</button>`;
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap">
+      <p style="font-size:11px;color:var(--textMut);margin:0;flex:1;min-width:220px">NMDC KPI 表單：點「填寫 / 列印」開啟、可直接列印紙本或儲存計入統計。下方統計可切換期間；每月／每週份數歷史在最下方。</p>
+      <button class="btn btn-def btn-sm" onclick="loadKpiFromGas();toast('已從雲端更新統計')">🔄 更新統計</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--textSec);font-weight:600">統計期間</span>
+      ${tbtn('week','本週')}${tbtn('month','本月')}${tbtn('all','全部')}
+      <span style="font-size:11px;color:var(--textMut)">目前：${kpiPeriodLabel()}</span>
+    </div>
+    <div class="kpi-cardgrid">${cards}</div>
+
+    <div class="card" style="margin-bottom:22px">
+      <div class="card-head"><h3>📊 BSA 項目統計（${kpiPeriodLabel()}）</h3><span style="font-size:11px;color:var(--textMut)">份數 ${bt.audits} · 受稽核 ${bt.persons} 人次</span></div>
+      <div style="overflow-x:auto;max-height:460px"><table class="tbl">
+        <thead><tr><th style="width:24%">Category 類別</th><th>Item 項目</th><th style="text-align:right;width:90px">勾選次數</th></tr></thead>
+        <tbody>${bsaRows}</tbody>
+      </table></div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom:22px">
+      <div class="card">
+        <div class="card-head"><h3>🧮 份數統計（PTW / HIP / RA）</h3><span style="font-size:11px;color:var(--textMut)">${kpiPeriodLabel()}</span></div>
+        <div style="overflow-x:auto"><table class="tbl">
+          <thead><tr><th>表單</th><th style="text-align:center">本期</th><th style="text-align:center">總計</th></tr></thead>
+          <tbody>${countRows}</tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>🕑 最近紀錄</h3></div>
+        <div style="overflow-x:auto;max-height:300px"><table class="tbl">
+          <thead><tr><th>日期</th><th>表單</th><th>摘要</th><th></th></tr></thead>
+          <tbody>${recentRows}</tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><h3>📅 每月份數</h3><span style="font-size:11px;color:var(--textMut)">近 6 個月</span></div>
+        <div style="overflow-x:auto;max-height:320px"><table class="tbl">
+          <thead><tr><th>月份</th><th style="text-align:center">BSA</th><th style="text-align:center">PTW</th><th style="text-align:center">HIP</th><th style="text-align:center">RA</th></tr></thead>
+          <tbody>${histRows('month',6)}</tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>🗓️ 每週份數</h3><span style="font-size:11px;color:var(--textMut)">近 8 週 (ISO 週)</span></div>
+        <div style="overflow-x:auto;max-height:320px"><table class="tbl">
+          <thead><tr><th>週次</th><th style="text-align:center">BSA</th><th style="text-align:center">PTW</th><th style="text-align:center">HIP</th><th style="text-align:center">RA</th></tr></thead>
+          <tbody>${histRows('week',8)}</tbody>
+        </table></div>
+      </div>
+    </div>`;
+}
+
 document.addEventListener('DOMContentLoaded',()=>{
   loadState();
+  if(!state.kpiForms) state.kpiForms = {bsa:[], ptw:[], hip:[], risk:[]};
+  ['bsa','ptw','hip','risk'].forEach(t=>{ if(!Array.isArray(state.kpiForms[t])) state.kpiForms[t]=[]; });
+  loadKpiFromGas();
   document.getElementById('todayDate').textContent=new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   buildNav();
   updateAdminUI();
