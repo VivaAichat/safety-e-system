@@ -700,6 +700,16 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   base.forEach(item => { if (item.date && (item.type === '缺點' || item.type === '罰單')) { const m = item.date.substring(0,7); if (!monthlyStats[m]) monthlyStats[m] = { soc:0, ncr:0 }; if (item.source === 'SOC') monthlyStats[m].soc++; else monthlyStats[m].ncr++; } });
   const monthly = Object.entries(monthlyStats).sort((a,b)=>a[0].localeCompare(b[0])).map(([m, v]) => ({m, soc: v.soc, ncr: v.ncr}));
 
+  // 每個危害種類的每月走勢（僅 SOC/TPC/Gov；base 已限制來源）
+  const hzCatMonth = {}; const hzMonthSet = {};
+  defects.forEach(item=>{ if(!item.date||!item.category) return; const mm=item.date.substring(0,7); hzMonthSet[mm]=true; if(!hzCatMonth[item.category]) hzCatMonth[item.category]={}; hzCatMonth[item.category][mm]=(hzCatMonth[item.category][mm]||0)+1; });
+  const hzMonths = Object.keys(hzMonthSet).sort();
+  const hazardTrend = {
+    months: hzMonths,
+    total: hzMonths.map(mm => socByCategory.reduce((s,c)=> s + ((hzCatMonth[c.name]&&hzCatMonth[c.name][mm])||0), 0)),
+    cats: socByCategory.map(c => ({ name:c.name, data: hzMonths.map(mm => (hzCatMonth[c.name]&&hzCatMonth[c.name][mm])||0) }))
+  };
+
   const subStats = {};
   filtered.forEach(item => { if (item.subcontractor && (item.type === '缺點' || item.type === '罰單')) { if (!subStats[item.subcontractor]) subStats[item.subcontractor] = { name:item.subcontractor, soc:0, ncr:0, cond:0, act:0, closed:0, total:0 }; subStats[item.subcontractor].total++; if (item.defectCategory === 'Condition') subStats[item.subcontractor].cond++; else if (item.defectCategory === 'Action') subStats[item.subcontractor].act++; if (item.solved) subStats[item.subcontractor].closed++; if (item.source === 'SOC') subStats[item.subcontractor].soc++; else subStats[item.subcontractor].ncr++; } });
   const contractorRank = Object.values(subStats).filter(i=>i.total>0).map(c => ({...c, score: c.total > 0 ? Math.round((c.closed/c.total)*100) : 0})).sort((a,b) => b.score - a.score);
@@ -747,7 +757,7 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
       nmdcPenTotal, nmdcPenRevoked, nmdcPenAmount, nmdcPenAmountAll
     },
     ncrClosure: closureRate, ptwCompliance: ptwRate, tbmRate: tbmRate,
-    socByCategory, monthly, contractorRank, positiveRank, manpower,
+    socByCategory, monthly, hazardTrend, contractorRank, positiveRank, manpower,
     nmdcPenList, nmdcNcrList,
     monthlyManpower: calcMonthlyManpowerByLocation(startDate, endDate)
   };
@@ -771,7 +781,7 @@ function calcMonthlyManpowerByLocation(startDate, endDate) {
 function getFallbackKPI() {
   return {
     summary:{totalSOC:0,totalNCR:0,totalGov:0,totalDefects:0,positives:0,closureRate:0,socClosure:0,tpcClosure:0,manpower:0,safeHours:0,trir:0,ltir:0,far:0,nearMissRate:0,severityRate:0,mtcRate:0,penaltyAmount:0,govPenalty:0,conditionOpen:0,conditionClosed:0,actionOpen:0,actionClosed:0,lsrViolations:0,rec:0,lti:0,lost:0,nm:0,fat:0,mtc:0,totalPeople:0,totalHours:0,nmdcNcrTotal:0,nmdcNcrClosed:0,nmdcNcrOpen:0,nmdcNcrClosure:0,nmdcPenTotal:0,nmdcPenRevoked:0,nmdcPenAmount:0,nmdcPenAmountAll:0},
-    ncrClosure:0,ptwCompliance:0,tbmRate:0,socByCategory:[],monthly:[],contractorRank:[],positiveRank:[],manpower:[],monthlyManpower:[],nmdcPenList:[],nmdcNcrList:[]
+    ncrClosure:0,ptwCompliance:0,tbmRate:0,socByCategory:[],monthly:[],hazardTrend:{months:[],total:[],cats:[]},contractorRank:[],positiveRank:[],manpower:[],monthlyManpower:[],nmdcPenList:[],nmdcNcrList:[]
   };
 }
 
@@ -911,6 +921,11 @@ function gaugeCard(label,value,max,color){
 }
 
 let trendChart=null,catChart=null;
+let hazTrendChart=null; let hazSel=new Set(); let hazTotal=true; let _lastHaz={months:[],total:[],cats:[]};
+function toggleHazTotal(){ hazTotal=!hazTotal; renderDashboard(); }
+function toggleHazCatIdx(i){ const n=_lastHaz.cats[i]&&_lastHaz.cats[i].name; if(!n) return; if(hazSel.has(n)) hazSel.delete(n); else hazSel.add(n); renderDashboard(); }
+function hazAll(){ hazTotal=false; hazSel=new Set(_lastHaz.cats.map(c=>c.name)); renderDashboard(); }
+function hazNone(){ hazSel=new Set(); hazTotal=true; renderDashboard(); }
 function renderDashboard(){
   const range = getDateRange();
   const startVal = document.getElementById('dashStart')?.value || range.start;
@@ -920,6 +935,7 @@ function renderDashboard(){
   const locVal = document.getElementById('dashLoc')?.value || 'All';
   const kpi = calcKPI(startVal, endVal, srcVal, subVal, locVal, 'All');
   const s = kpi.summary;
+  _lastHaz = kpi.hazardTrend || {months:[],total:[],cats:[]};
   const el=document.getElementById('page-dashboard');
   const todayStr = new Date().toISOString().slice(0,10);
 
@@ -1032,6 +1048,16 @@ function renderDashboard(){
       <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢 <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov)</span></div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
       <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類統計（全部） <span style="font-size:10px;color:var(--textMut);font-weight:500">(僅 SOC / TPC NCR / Gov)</span></div><div style="height:300px;overflow-y:auto"><div style="height:${Math.max(280, kpi.socByCategory.length*28+20)}px"><canvas id="catCanvas"></canvas></div></div></div>
     </div>
+    <div class="card" style="margin-bottom:22px">
+      <div class="card-head"><h3>📈 危害種類每月走勢</h3><span style="font-size:10px;color:var(--textMut)">可選「總體」，或單選／複選各危害種類 (SOC/TPC/Gov)</span></div>
+      <div style="padding:10px 16px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        <button class="pill-btn" style="background:${hazTotal?'#111827':'var(--card)'};color:${hazTotal?'#fff':'var(--textSec)'};border:1px solid var(--border)" onclick="toggleHazTotal()">總體</button>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 4px"></span>
+        ${_lastHaz.cats.map((c,i)=>{const on=hazSel.has(c.name);const col=PAL[i%PAL.length];return `<button class="pill-btn" style="background:${on?col:'var(--card)'};color:${on?'#fff':'var(--textSec)'};border:1px solid ${on?col:'var(--border)'}" onclick="toggleHazCatIdx(${i})">${esc(c.name)}</button>`;}).join('')}
+        ${_lastHaz.cats.length?`<span style="width:1px;height:18px;background:var(--border);margin:0 4px"></span><button class="pill-btn" style="background:var(--card);color:var(--textSec);border:1px solid var(--border)" onclick="hazAll()">全選</button><button class="pill-btn" style="background:var(--card);color:var(--textSec);border:1px solid var(--border)" onclick="hazNone()">清除</button>`:''}
+      </div>
+      <div style="padding:0 16px 16px;height:300px"><canvas id="hazTrendCanvas"></canvas></div>
+    </div>
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card">
         <div class="card-head"><h3>🏆 承包商績效（缺失）<span style="font-size:10px;color:var(--textMut);font-weight:500;margin-left:4px">SOC/TPC/Gov</span></h3></div>
@@ -1088,6 +1114,16 @@ function renderDashboard(){
       }
     });
     else if(cc) catChart=new Chart(cc,{type:'bar',data:{labels:['無資料'],datasets:[{data:[0],backgroundColor:['#5b6675']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+
+    // 危害種類每月走勢
+    const htc=document.getElementById('hazTrendCanvas');
+    if(htc){
+      if(hazTrendChart)hazTrendChart.destroy();
+      const ds=[];
+      if(hazTotal) ds.push({label:'總體',data:_lastHaz.total,borderColor:'#111827',backgroundColor:'#111827',borderWidth:2.5,tension:.3,pointRadius:2});
+      _lastHaz.cats.forEach((c,i)=>{ if(hazSel.has(c.name)){ const col=PAL[i%PAL.length]; ds.push({label:c.name,data:c.data,borderColor:col,backgroundColor:col,borderWidth:2,tension:.3,pointRadius:2}); } });
+      hazTrendChart=new Chart(htc,{type:'line',data:{labels:_lastHaz.months,datasets:ds.length?ds:[{label:'（未選擇）',data:_lastHaz.months.map(()=>null),borderColor:'#e4e8ef'}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#5b6675',font:{size:10},boxWidth:12}}},scales:{x:{ticks:{color:'#5b6675',font:{size:10}},grid:{color:'#e4e8ef'}},y:{beginAtZero:true,ticks:{color:'#5b6675',font:{size:10},precision:0},grid:{color:'#e4e8ef'}}}}});
+    }
   },100);
 }
 
