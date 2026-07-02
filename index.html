@@ -1030,7 +1030,7 @@ function renderDashboard(){
 
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢 <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov)</span></div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
-      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類 Top 8 <span style="font-size:10px;color:var(--textMut);font-weight:500">(僅 SOC / TPC NCR / Gov)</span></div><div style="height:220px"><canvas id="catCanvas"></canvas></div></div>
+      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類統計（全部） <span style="font-size:10px;color:var(--textMut);font-weight:500">(僅 SOC / TPC NCR / Gov)</span></div><div style="height:300px;overflow-y:auto"><div style="height:${Math.max(280, kpi.socByCategory.length*28+20)}px"><canvas id="catCanvas"></canvas></div></div></div>
     </div>
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card">
@@ -1069,7 +1069,7 @@ function renderDashboard(){
     if(tc && kpi.monthly.length > 0) trendChart=new Chart(tc,{type:'line',data:{labels:kpi.monthly.map(m=>m.m),datasets:[{label:'SOC',data:kpi.monthly.map(m=>m.soc),borderColor:'#f59e0b',borderWidth:2,tension:.4,pointRadius:3,fill:false},{label:'NCR',data:kpi.monthly.map(m=>m.ncr),borderColor:'#ef4444',borderWidth:2,tension:.4,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#5b6675',font:{size:10}}}},scales:{x:{ticks:{color:'#5b6675',font:{size:10}},grid:{color:'#e4e8ef'}},y:{ticks:{color:'#5b6675',font:{size:10}},grid:{color:'#e4e8ef'}}}}});
     else if(tc) trendChart=new Chart(tc,{type:'line',data:{labels:['無資料'],datasets:[{data:[0],borderColor:'#5b6675',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
 
-    const topCats = kpi.socByCategory.slice(0,8);
+    const topCats = kpi.socByCategory; // 顯示全部危害種類
     const totalCats = kpi.socByCategory.reduce((s,c)=>s+c.value,0);
     if(cc && topCats.length > 0) catChart=new Chart(cc,{
       type:'bar',
