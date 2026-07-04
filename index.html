@@ -451,8 +451,10 @@ function gvizToNmdcPenaltyRows(gvizTable) {
 
 // NMDC NCR: 違規廠商 | 改善單編號 | 違規地點 | 違規敘述 | 缺失日期 | 開單日期 | 準備者 | 到期日 | 結案日期 | 結案收件者
 function gvizToNmdcNcrRows(gvizTable) {
-  const MAP = {'違規廠商':'subcon','廠商':'subcon','改善單編號':'ncr_no','編號':'ncr_no','違規地點':'location','地點':'location','違規敘述':'description','敘述':'description','內容':'description','缺失日期':'defect_date','開單日期':'issue_date','準備者':'preparer','到期日':'due_date','期限':'due_date','結案日期':'close_date','結案收件者':'close_recipient','收件':'close_recipient'};
+  const MAP = {'違規廠商':'subcon','廠商':'subcon','改善單編號':'ncr_no','編號':'ncr_no','違規地點':'location','地點':'location','違規敘述':'description','敘述':'description','內容':'description','危害種類':'hazard_type','缺失種類':'hazard_type','違規種類':'hazard_type','危害類別':'hazard_type','缺失日期':'defect_date','開單日期':'issue_date','準備者':'preparer','到期日':'due_date','期限':'due_date','結案日期':'close_date','結案收件者':'close_recipient','收件':'close_recipient'};
   const colKeys = gvizTable.cols.map(c => { const lbl = (c.label || '').trim(); for (const [kw, key] of Object.entries(MAP)) { if (lbl.includes(kw)) return key; } return c.id; });
+    // 保險：NMDC NCR 的「危害種類」固定為第 6 欄 (F)。若 GViz 未正確辨識表頭，直接鎖定該欄。
+  if (!colKeys.includes('hazard_type') && colKeys.length > 5) colKeys[5] = 'hazard_type';
   return gvizTable.rows.map(row => {
     const obj = {};
     row.c.forEach((cell, i) => { if (!cell || cell.v === null || cell.v === undefined) return; let val = cell.v; const key = colKeys[i]; if (['defect_date','issue_date','due_date','close_date'].includes(key)) val = normalizeFlexDate(val); obj[key] = val; });
@@ -615,7 +617,7 @@ function processSheetData(socRows, tpcRows, mpData, govRows, penRows, ncrRows) {
   // NMDC NCR — kept SEPARATE; no 危害種類, so excluded from hazard analysis
   ncrRows.forEach((row, idx) => {
     const closeDate = row.close_date || '';
-    g.allData.push({ id: 'NMDCNCR-'+idx, date: row.issue_date || row.defect_date || '', type: '缺點', defectCategory: 'NMDC_NCR', subcontractor: mapNmdcSubcon(row.subcon), category: '', location: row.location || '', description: row.description || '', solved: !!closeDate, lsr: false, ncrNo: row.ncr_no || '', defectDate: row.defect_date || '', dueDate: row.due_date || '', preparer: row.preparer || '', closeDate: closeDate, closeRecipient: row.close_recipient || '', source: 'NMDC NCR', isPTWViolation: false });
+    g.allData.push({ id: 'NMDCNCR-'+idx, date: row.issue_date || row.defect_date || '', type: '缺點', defectCategory: 'NMDC_NCR', subcontractor: mapNmdcSubcon(row.subcon), category: row.hazard_type || '', location: row.location || '', description: row.description || '', solved: !!closeDate, lsr: false, ncrNo: row.ncr_no || '', defectDate: row.defect_date || '', dueDate: row.due_date || '', preparer: row.preparer || '', closeDate: closeDate, closeRecipient: row.close_recipient || '', source: 'NMDC NCR', isPTWViolation: false });
   });
 
   // NMDC Penalty — kept SEPARATE
@@ -647,11 +649,15 @@ function processSheetData(socRows, tpcRows, mpData, govRows, penRows, ncrRows) {
 function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   if (!sheetLoaded) return getFallbackKPI();
   const g = gsheetData;
+  // source can be a string ('All' | one source) or an array of sources (multi-select)
+  const srcList = Array.isArray(source) ? source.slice() : (source === 'All' ? SAFETY_SOURCES.slice() : [source]);
+  const baseSources = srcList.filter(s => SAFETY_SOURCES.includes(s)); // 缺失統計/結案率僅限 SOC/TPC/Gov
+  const hazardSources = srcList.slice();                                // 危害種類可含 NMDC NCR
 
   // base restricted to SAFETY_SOURCES so NMDC Penalty/NCR never mix in
   let base = g.allData.filter(item =>
     item.date >= startDate && item.date <= endDate &&
-    (source === 'All' ? SAFETY_SOURCES.includes(item.source) : item.source === source) &&
+    baseSources.includes(item.source) &&
     (subFilter === 'All' || item.subcontractor === subFilter) &&
     (locFilter === 'All' || item.location === locFilter)
   );
@@ -691,18 +697,25 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   const calcRate = (n, mul) => totalHours > 0 ? (n * mul / totalHours) : 0;
   const trir = calcRate(rec, 200000), ltir = calcRate(lti, 200000), severity = calcRate(lost, 200000), nmRate = calcRate(nm, 200000), far = calcRate(fat, 100000000), mtcRate = calcRate(mtc, 200000);
 
-  // 危害種類 (only SOC/TPC/Gov — base already restricted)
+  // 危害種類統計 — 依所選來源（可含 NMDC NCR）
+  const hazardBase = g.allData.filter(item =>
+    item.date >= startDate && item.date <= endDate &&
+    hazardSources.includes(item.source) &&
+    (subFilter === 'All' || item.subcontractor === subFilter) &&
+    (locFilter === 'All' || item.location === locFilter) &&
+    (item.type === '缺點' || item.type === '罰單') && item.category
+  );
   const catStats = {};
-  defects.forEach(item => { if (!item.category) return; if (!catStats[item.category]) catStats[item.category] = { total:0, condition:0, action:0 }; catStats[item.category].total++; if (item.defectCategory === 'Condition') catStats[item.category].condition++; else if (item.defectCategory === 'Action') catStats[item.category].action++; });
+  hazardBase.forEach(item => { if (!catStats[item.category]) catStats[item.category] = { total:0, condition:0, action:0 }; catStats[item.category].total++; if (item.defectCategory === 'Condition') catStats[item.category].condition++; else if (item.defectCategory === 'Action') catStats[item.category].action++; });
   const socByCategory = Object.entries(catStats).map(([name, v]) => ({name, value: v.total, condition: v.condition, action: v.action})).sort((a,b) => b.value - a.value);
 
   const monthlyStats = {};
   base.forEach(item => { if (item.date && (item.type === '缺點' || item.type === '罰單')) { const m = item.date.substring(0,7); if (!monthlyStats[m]) monthlyStats[m] = { soc:0, ncr:0 }; if (item.source === 'SOC') monthlyStats[m].soc++; else monthlyStats[m].ncr++; } });
   const monthly = Object.entries(monthlyStats).sort((a,b)=>a[0].localeCompare(b[0])).map(([m, v]) => ({m, soc: v.soc, ncr: v.ncr}));
 
-  // 每個危害種類的每月走勢（僅 SOC/TPC/Gov；base 已限制來源）
+  // 每個危害種類的每月走勢（含 NMDC NCR）
   const hzCatMonth = {}; const hzMonthSet = {};
-  defects.forEach(item=>{ if(!item.date||!item.category) return; const mm=item.date.substring(0,7); hzMonthSet[mm]=true; if(!hzCatMonth[item.category]) hzCatMonth[item.category]={}; hzCatMonth[item.category][mm]=(hzCatMonth[item.category][mm]||0)+1; });
+  hazardBase.forEach(item=>{ if(!item.date||!item.category) return; const mm=item.date.substring(0,7); hzMonthSet[mm]=true; if(!hzCatMonth[item.category]) hzCatMonth[item.category]={}; hzCatMonth[item.category][mm]=(hzCatMonth[item.category][mm]||0)+1; });
   const hzMonths = Object.keys(hzMonthSet).sort();
   const hazardTrend = {
     months: hzMonths,
@@ -723,7 +736,7 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   mpFiltered.forEach(item => { if (!mpByCompany[item.company]) mpByCompany[item.company] = {name:item.company, total:0, max:0, days:new Set()}; mpByCompany[item.company].total += item.count; mpByCompany[item.company].max = Math.max(mpByCompany[item.company].max, item.count); mpByCompany[item.company].days.add(item.date); });
   const manpower = Object.values(mpByCompany).map(c => ({ name: c.name, avg: c.days.size > 0 ? Math.round(c.total / c.days.size) : 0, max: c.max, hours: c.total * 8 })).sort((a,b) => b.hours - a.hours);
 
-  const inScope = d => (source === 'All' ? SAFETY_SOURCES.includes(d.source) : d.source === source) && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter);
+  const inScope = d => baseSources.includes(d.source) && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter);
   const allCondDef = g.allData.filter(d => (d.type === '缺點' || d.type === '罰單') && d.defectCategory === 'Condition' && inScope(d));
   const allActDef  = g.allData.filter(d => (d.type === '缺點' || d.type === '罰單') && d.defectCategory === 'Action' && inScope(d));
   const openCond = allCondDef.filter(d => !d.solved).length, openAct = allActDef.filter(d => !d.solved).length;
@@ -922,6 +935,9 @@ function gaugeCard(label,value,max,color){
 
 let trendChart=null,catChart=null;
 let hazTrendChart=null; let hazSel=new Set(); let hazTotal=true; let _lastHaz={months:[],total:[],cats:[]};
+const SRC_ALL = ['SOC','TPC NCR','Gov','NMDC NCR'];
+let srcSel = new Set(SRC_ALL);
+function toggleSrc(s){ if(srcSel.has(s)) srcSel.delete(s); else srcSel.add(s); renderDashboard(); }
 function toggleHazTotal(){ hazTotal=!hazTotal; renderDashboard(); }
 function toggleHazCatIdx(i){ const n=_lastHaz.cats[i]&&_lastHaz.cats[i].name; if(!n) return; if(hazSel.has(n)) hazSel.delete(n); else hazSel.add(n); renderDashboard(); }
 function hazAll(){ hazTotal=false; hazSel=new Set(_lastHaz.cats.map(c=>c.name)); renderDashboard(); }
@@ -930,10 +946,10 @@ function renderDashboard(){
   const range = getDateRange();
   const startVal = document.getElementById('dashStart')?.value || range.start;
   const endVal = document.getElementById('dashEnd')?.value || range.end;
-  const srcVal = document.getElementById('dashSource')?.value || 'All';
+  const srcArr = srcSel.size ? Array.from(srcSel) : SRC_ALL.slice();
   const subVal = document.getElementById('dashSub')?.value || 'All';
   const locVal = document.getElementById('dashLoc')?.value || 'All';
-  const kpi = calcKPI(startVal, endVal, srcVal, subVal, locVal, 'All');
+  const kpi = calcKPI(startVal, endVal, srcArr, subVal, locVal, 'All');
   const s = kpi.summary;
   _lastHaz = kpi.hazardTrend || {months:[],total:[],cats:[]};
   const el=document.getElementById('page-dashboard');
@@ -953,12 +969,12 @@ function renderDashboard(){
       <span style="font-size:12px;font-weight:700;color:var(--amber)">📊 篩選條件</span>
       <div style="display:flex;align-items:center;gap:8px"><label>起始</label><input type="date" class="inp" id="dashStart" value="${startVal}" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"></div>
       <div style="display:flex;align-items:center;gap:8px"><label>結束</label><input type="date" class="inp" id="dashEnd" value="${endVal}" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"></div>
-      <div style="display:flex;align-items:center;gap:8px"><label>來源</label><select class="sel" id="dashSource" style="width:130px;padding:6px 10px;font-size:12px" onchange="renderDashboard()"><option value="All"${srcVal==='All'?' selected':''}>全部</option><option value="SOC"${srcVal==='SOC'?' selected':''}>SOC</option><option value="TPC NCR"${srcVal==='TPC NCR'?' selected':''}>TPC NCR</option><option value="Gov"${srcVal==='Gov'?' selected':''}>政府機關</option></select></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><label>來源(可複選)</label>${SRC_ALL.map(sc=>{const on=srcSel.has(sc);const lbl=sc==='Gov'?'政府機關':sc;return `<button class="pill-btn" style="padding:5px 12px;font-size:11px;background:${on?'var(--amberBg)':'var(--card)'};color:${on?'var(--amber)':'var(--textSec)'};border:1px solid ${on?'var(--amber)':'var(--border)'}" onclick="toggleSrc('${sc}')">${lbl}</button>`;}).join('')}<button class="pill-btn" style="padding:5px 10px;font-size:11px;background:var(--card);color:var(--textSec);border:1px solid var(--border)" onclick="srcSel=new Set(SRC_ALL);renderDashboard()">全選</button></div>
       <div style="display:flex;align-items:center;gap:8px"><label>承攬商</label><select class="sel" id="dashSub" style="width:150px;padding:6px 10px;font-size:12px" onchange="renderDashboard()">${subOptions}</select></div>
       <div style="display:flex;align-items:center;gap:8px"><label>區域</label><select class="sel" id="dashLoc" style="width:130px;padding:6px 10px;font-size:12px" onchange="renderDashboard()">${locOptions}</select></div>
       ${sheetLoaded ? badge('LIVE 🟢','var(--green)') : badge('離線','var(--textMut)')}
     </div>
-    <div style="font-size:11px;color:var(--textMut);margin:0 0 16px">ℹ️ 上方「來源／危害種類／缺失統計」僅涵蓋 <b style="color:var(--textSec)">SOC · TPC NCR · 政府機關</b>。<b style="color:var(--amber)">NMDC Penalty / NMDC NCR</b> 為 NMDC 內部開立，獨立統計於下方專區，不與上述混算。</div>
+    <div style="font-size:11px;color:var(--textMut);margin:0 0 16px">ℹ️ 「缺失統計／結案率」僅涵蓋 <b style="color:var(--textSec)">SOC · TPC NCR · 政府機關</b>；<b style="color:var(--amber)">危害種類統計</b>另含 NMDC NCR。NMDC Penalty 與 NMDC NCR 的件數／罰款仍獨立統計於下方專區。</div>
     ${!sheetLoaded ? '<div style="padding:16px;background:var(--amberBg);border:1px solid var(--amber);border-radius:8px;margin-bottom:16px;font-size:12px;color:var(--amber)">⚠️ Google Sheet 尚未連線，顯示的為即時計算結果。若資料為零請確認 Sheet 已設定為公開。</div>' : ''}
     <div class="grid grid-3" style="margin-bottom:22px">
       ${[{l:"SOC 結案率",v:s.socClosure,t:[80,95]},{l:"TPC NCR 結案率",v:s.tpcClosure,t:[80,95]},{l:"NMDC NCR 結案率",v:s.nmdcNcrClosure,t:[80,95]}].map(g=>`
@@ -1046,10 +1062,10 @@ function renderDashboard(){
 
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢 <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov)</span></div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
-      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類統計（全部） <span style="font-size:10px;color:var(--textMut);font-weight:500">(僅 SOC / TPC NCR / Gov)</span></div><div style="height:300px;overflow-y:auto"><div style="height:${Math.max(280, kpi.socByCategory.length*28+20)}px"><canvas id="catCanvas"></canvas></div></div></div>
+      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類統計（全部） <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov / NMDC NCR)</span></div><div style="height:300px;overflow-y:auto"><div style="height:${Math.max(280, kpi.socByCategory.length*28+20)}px"><canvas id="catCanvas"></canvas></div></div></div>
     </div>
     <div class="card" style="margin-bottom:22px">
-      <div class="card-head"><h3>📈 危害種類每月走勢</h3><span style="font-size:10px;color:var(--textMut)">可選「總體」，或單選／複選各危害種類 (SOC/TPC/Gov)</span></div>
+      <div class="card-head"><h3>📈 危害種類每月走勢</h3><span style="font-size:10px;color:var(--textMut)">可選「總體」，或單選／複選各危害種類 (SOC / TPC NCR / Gov / NMDC NCR)</span></div>
       <div style="padding:10px 16px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
         <button class="pill-btn" style="background:${hazTotal?'#111827':'var(--card)'};color:${hazTotal?'#fff':'var(--textSec)'};border:1px solid var(--border)" onclick="toggleHazTotal()">總體</button>
         <span style="width:1px;height:18px;background:var(--border);margin:0 4px"></span>
