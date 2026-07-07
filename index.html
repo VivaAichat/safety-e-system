@@ -934,6 +934,14 @@ function gaugeCard(label,value,max,color){
 }
 
 let trendChart=null,catChart=null;
+function downloadChartPng(canvasId, filename){
+  const src=document.getElementById(canvasId);
+  if(!src){ toast('找不到圖表','error'); return; }
+  const tmp=document.createElement('canvas'); tmp.width=src.width; tmp.height=src.height;
+  const ctx=tmp.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,tmp.width,tmp.height); ctx.drawImage(src,0,0);
+  const a=document.createElement('a'); a.href=tmp.toDataURL('image/png'); a.download=(filename||'chart')+'_'+today()+'.png';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); toast('已下載圖表 ✓');
+}
 let hazTrendChart=null; let hazSel=new Set(); let hazTotal=true; let _lastHaz={months:[],total:[],cats:[]};
 const SRC_ALL = ['SOC','TPC NCR','Gov','NMDC NCR'];
 let srcSel = new Set(SRC_ALL);
@@ -1062,7 +1070,7 @@ function renderDashboard(){
 
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢 <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov)</span></div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
-      <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📊 危害種類統計（全部） <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov / NMDC NCR)</span></div><div style="height:300px;overflow-y:auto"><div style="height:${Math.max(280, kpi.socByCategory.length*28+20)}px"><canvas id="catCanvas"></canvas></div></div></div>
+      <div class="card" style="padding:18px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px"><div style="font-size:13px;font-weight:700">📊 危害種類統計（全部） <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov / NMDC NCR)</span></div><button class="btn btn-def btn-sm" onclick="downloadChartPng('catCanvas','危害種類統計')">⬇ 下載 PNG</button></div><div style="height:300px;overflow-y:auto"><div style="height:${Math.max(280, kpi.socByCategory.length*28+20)}px"><canvas id="catCanvas"></canvas></div></div></div>
     </div>
     <div class="card" style="margin-bottom:22px">
       <div class="card-head"><h3>📈 危害種類每月走勢</h3><span style="font-size:10px;color:var(--textMut)">可選「總體」，或單選／複選各危害種類 (SOC / TPC NCR / Gov / NMDC NCR)</span></div>
