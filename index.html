@@ -934,13 +934,45 @@ function gaugeCard(label,value,max,color){
 }
 
 let trendChart=null,catChart=null;
-function downloadChartPng(canvasId, filename){
-  const src=document.getElementById(canvasId);
-  if(!src){ toast('找不到圖表','error'); return; }
-  const tmp=document.createElement('canvas'); tmp.width=src.width; tmp.height=src.height;
-  const ctx=tmp.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,tmp.width,tmp.height); ctx.drawImage(src,0,0);
-  const a=document.createElement('a'); a.href=tmp.toDataURL('image/png'); a.download=(filename||'chart')+'_'+today()+'.png';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a); toast('已下載圖表 ✓');
+let _lastCat={cats:[]}; let _catTopN='10';
+function downloadCatChartHi(){
+  const cats=(_lastCat&&_lastCat.cats)?_lastCat.cats:[];
+  if(!cats.length){ toast('沒有資料可下載','error'); return; }
+  const total=cats.reduce((s,c)=>s+c.value,0);
+  const N=(_catTopN==='all')?Infinity:(parseInt(_catTopN)||10);
+  let disp=cats.slice();
+  if(disp.length>N){ const rest=disp.slice(N).reduce((s,c)=>s+c.value,0); disp=disp.slice(0,N).concat([{name:'其他 Others',value:rest}]); }
+  const topLbl=(_catTopN==='all')?'全部危害種類':('Top '+N+' 危害種類');
+  const SLIDE_PAL=['#2563eb','#0e8aa8','#059669','#d97706','#7c3aed','#db2777','#0891b2','#65a30d','#e11d48','#4f46e5'];
+  const colors=disp.map((c,i)=> c.name.indexOf('其他')===0 ? '#9aa3b2' : SLIDE_PAL[i%SLIDE_PAL.length]);
+  const srcs=(_lastCat.sources||[]);
+  const srcLbl=(srcs.length && srcs.length<4)? srcs.map(s=>s==='Gov'?'政府機關':s).join('、') : '全部來源';
+  const period=(_lastCat.start&&_lastCat.end)?(_lastCat.start+' ~ '+_lastCat.end):'';
+  const SUB=topLbl+'　·　共 '+total+' 件　·　'+srcLbl+(period?'　·　'+period:'');
+  const FOOT='NMDC Energy — Tongxiao Power Plant Phase II　·　產出 '+today();
+  const H=Math.max(900, 182+disp.length*46+66); const off=document.createElement('canvas'); off.width=1600; off.height=H;
+  off.style.cssText='position:absolute;left:-99999px;top:0'; document.body.appendChild(off);
+  const frame={id:'frame',beforeDraw(ch){const c=ch.ctx,CW=ch.width,CH=ch.height;
+    c.save();
+    c.fillStyle='#ffffff'; c.fillRect(0,0,CW,CH);
+    const g=c.createLinearGradient(0,0,CW,0); g.addColorStop(0,'#14202e'); g.addColorStop(1,'#20476f');
+    c.fillStyle=g; c.fillRect(0,0,CW,150);
+    c.fillStyle='#f59e0b'; c.fillRect(0,150,CW,5);
+    c.textAlign='left'; c.textBaseline='alphabetic';
+    c.fillStyle='#ffffff'; c.font='bold 40px "DM Sans","Noto Sans TC",sans-serif'; c.fillText('危害種類統計', 60, 80);
+    c.fillStyle='rgba(255,255,255,.85)'; c.font='17px "DM Sans","Noto Sans TC",sans-serif'; c.fillText(SUB, 62, 118);
+    c.fillStyle='#94a0b0'; c.font='14px "DM Sans","Noto Sans TC",sans-serif'; c.fillText(FOOT, 60, CH-22);
+    c.restore();
+  }};
+  const valLabels={id:'valLabels',afterDatasetsDraw(ch){const c=ch.ctx;c.save();c.font='bold 17px "DM Sans","Noto Sans TC",sans-serif';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#1b2433';ch.data.datasets[0].data.forEach((v,idx)=>{const m=ch.getDatasetMeta(0).data[idx];const pct=total>0?(v/total*100).toFixed(1):0;c.fillText(v+'　('+pct+'%)',m.x+10,m.y);});c.restore();}};
+  const chart=new Chart(off,{type:'bar',
+    data:{labels:disp.map(c=>c.name),datasets:[{data:disp.map(c=>c.value),backgroundColor:colors,borderRadius:5,maxBarThickness:46}]},
+    options:{responsive:false,animation:false,indexAxis:'y',devicePixelRatio:2,
+      layout:{padding:{top:182,left:24,right:150,bottom:66}},
+      plugins:{legend:{display:false},title:{display:false}},
+      scales:{x:{display:false,beginAtZero:true,grace:'8%'},y:{ticks:{color:'#1b2433',font:{size:16}},grid:{display:false,drawBorder:false}}}},
+    plugins:[frame,valLabels]});
+  setTimeout(()=>{ try{ const a=document.createElement('a'); a.href=off.toDataURL('image/png'); a.download='危害種類統計_簡報_'+today()+'.png'; document.body.appendChild(a); a.click(); document.body.removeChild(a); toast('已下載簡報圖 ✓'); }catch(e){ console.error(e); toast('下載失敗','error'); } chart.destroy(); off.remove(); },90);
 }
 let hazTrendChart=null; let hazSel=new Set(); let hazTotal=true; let _lastHaz={months:[],total:[],cats:[]};
 const SRC_ALL = ['SOC','TPC NCR','Gov','NMDC NCR'];
@@ -960,6 +992,7 @@ function renderDashboard(){
   const kpi = calcKPI(startVal, endVal, srcArr, subVal, locVal, 'All');
   const s = kpi.summary;
   _lastHaz = kpi.hazardTrend || {months:[],total:[],cats:[]};
+  _lastCat = { cats: kpi.socByCategory || [], sources: srcArr, start: startVal, end: endVal };
   const el=document.getElementById('page-dashboard');
   const todayStr = new Date().toISOString().slice(0,10);
 
@@ -1070,7 +1103,7 @@ function renderDashboard(){
 
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card" style="padding:18px"><div style="font-size:13px;font-weight:700;margin-bottom:14px">📈 月度趨勢 <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov)</span></div><div style="height:220px"><canvas id="trendCanvas"></canvas></div></div>
-      <div class="card" style="padding:18px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px"><div style="font-size:13px;font-weight:700">📊 危害種類統計（全部） <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov / NMDC NCR)</span></div><button class="btn btn-def btn-sm" onclick="downloadChartPng('catCanvas','危害種類統計')">⬇ 下載 PNG</button></div><div style="height:300px;overflow-y:auto"><div style="height:${Math.max(280, kpi.socByCategory.length*28+20)}px"><canvas id="catCanvas"></canvas></div></div></div>
+      <div class="card" style="padding:18px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px"><div style="font-size:13px;font-weight:700">📊 危害種類統計（全部） <span style="font-size:10px;color:var(--textMut);font-weight:500">(SOC / TPC NCR / Gov / NMDC NCR)</span></div><div style="display:flex;align-items:center;gap:8px"><select onchange="_catTopN=this.value" style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">${['10','15','20','all'].map(function(v){return '<option value="'+v+'"'+(_catTopN===v?' selected':'')+'>'+(v==='all'?'全部':'Top '+v)+'</option>';}).join('')}</select><button class="btn btn-def btn-sm" onclick="downloadCatChartHi()">⬇ 下載（簡報版）</button></div></div><div style="height:300px;overflow-y:auto"><div style="height:${Math.max(280, kpi.socByCategory.length*28+20)}px"><canvas id="catCanvas"></canvas></div></div></div>
     </div>
     <div class="card" style="margin-bottom:22px">
       <div class="card-head"><h3>📈 危害種類每月走勢</h3><span style="font-size:10px;color:var(--textMut)">可選「總體」，或單選／複選各危害種類 (SOC / TPC NCR / Gov / NMDC NCR)</span></div>
