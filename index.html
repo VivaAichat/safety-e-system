@@ -253,8 +253,8 @@ const SEV_LABEL = {critical:"🔴 嚴重",major:"🟠 重大",minor:"🟡 輕微
 const SEV_COLOR = {critical:"var(--red)",major:"#f97316",minor:"var(--amber)"};
 const STATUS_COLOR = {open:"var(--red)","in-progress":"var(--blue)",closed:"var(--green)"};
 const STATUS_LABEL = {open:"待改善","in-progress":"改善中",closed:"已結案"};
-const SCHED_COLOR = {R:"#1d4ed8",H:"#dc2626","休":"#dc2626","中":"#f59e0b","通":"#10b981","天":"#8b5cf6","霄":"#06b6d4","BB6":"#ec4899","BB7":"#a855f7","環":"#84cc16","CCT":"#f97316","臨":"#ef4444"};
-const SCHED_LABEL = {R:"上班",H:"休假","休":"休假","中":"台中","通":"通霄","天":"天力","霄":"離岸","BB6":"BB6","BB7":"BB7","環":"環保","CCT":"CCTV","臨":"臨時請假"};
+const SCHED_COLOR = {R:"#1d4ed8",H:"#dc2626","休":"#dc2626","中":"#f59e0b","夜":"#3730a3","通":"#10b981","天":"#8b5cf6","監":"#0f766e","霄":"#06b6d4","BB6":"#ec4899","BB7":"#a855f7","環":"#84cc16","CCT":"#f97316","臨":"#ef4444"};
+const SCHED_LABEL = {R:"上班",H:"休假","休":"休假","中":"台中日班","夜":"台中夜班","通":"通霄","天":"天力","監":"監工","霄":"離岸","BB6":"BB6","BB7":"BB7","環":"環保","CCT":"CCTV","臨":"臨時請假"};
 
 let isAdmin = false;
 let currentPage = "home";
@@ -743,8 +743,8 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   const closedCond = allCondDef.filter(d => d.solved).length, closedAct = allActDef.filter(d => d.solved).length;
 
   // NMDC computations — SEPARATE; respects date+sub+loc, ignores the source dropdown
-  const nmdcNcrBase = g.allData.filter(d => d.source === 'NMDC NCR' && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter));
-  const nmdcPenBase = g.allData.filter(d => d.source === 'NMDC Penalty' && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter));
+  const nmdcNcrBase = g.allData.filter(d => d.source === 'NMDC NCR' && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter)); // 不受日期區間影響
+  const nmdcPenBase = g.allData.filter(d => d.source === 'NMDC Penalty' && (subFilter === 'All' || d.subcontractor === subFilter)); // 不受日期區間影響
   const nmdcNcrTotal = nmdcNcrBase.length;
   const nmdcNcrClosed = nmdcNcrBase.filter(d => d.solved).length;
   const nmdcNcrOpen = nmdcNcrTotal - nmdcNcrClosed;
@@ -1070,7 +1070,7 @@ function renderDashboard(){
     </div>
 
     <div class="card" style="margin-bottom:22px;border-left:3px solid var(--amber)">
-      <div class="card-head"><h3>🏢 NMDC 內部開立 (Penalty &amp; NCR)</h3><span style="font-size:10px;color:var(--textMut)">NMDC 自行對承攬商開立 · 獨立統計</span></div>
+      <div class="card-head"><h3>🏢 NMDC 內部開立 (Penalty &amp; NCR)</h3><span style="font-size:10px;color:var(--textMut)">NMDC 自行對承攬商開立 · 獨立統計 · 不受日期影響（依區域／承攬商）</span></div>
       <div class="grid grid-5" style="gap:0">
         ${[
           {l:"NMDC 罰款件數",v:s.nmdcPenTotal||0,c:'var(--amber)',sub:s.nmdcPenRevoked?`含 ${s.nmdcPenRevoked} 筆已撤銷`:'無撤銷'},
@@ -1388,7 +1388,7 @@ function renderSchedule(){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <input type="month" class="inp" value="${sc.month}" onchange="state.schedule.month=this.value;saveState();renderSchedule()" style="width:160px;padding:6px 10px">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${Object.entries(SCHED_LABEL).filter(([k])=>['R','休','中','通','天','霄','BB6','BB7','環','CCT','臨'].includes(k)).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--textSec)"><span style="width:12px;height:12px;border-radius:3px;background:${SCHED_COLOR[k]};display:inline-block"></span>${v}</span>`).join('')}
+          ${Object.entries(SCHED_LABEL).filter(([k])=>['R','休','中','夜','通','天','監','霄','BB6','BB7','環','CCT','臨'].includes(k)).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--textSec)"><span style="width:12px;height:12px;border-radius:3px;background:${SCHED_COLOR[k]};display:inline-block"></span>${v}</span>`).join('')}
           <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--red)">🇹🇼 國定假日</span>
         </div>
       </div>
