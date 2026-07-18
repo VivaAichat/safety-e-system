@@ -191,7 +191,7 @@ a{color:var(--amber);text-decoration:none}
   <header class="header">
     <div>
       <h1 id="pageTitle">首頁 Home</h1>
-      <p class="header-sub">NMDC Energy — Tongxiao Power Plant Phase II · <span id="todayDate"></span> <span style="color:var(--green);font-weight:700;margin-left:6px">v2026.07.12-NMDC日期</span> <span id="sheetStatus" style="margin-left:8px"></span></p>
+      <p class="header-sub">NMDC Energy — Tongxiao Power Plant Phase II · <span id="todayDate"></span> <span style="color:var(--green);font-weight:700;margin-left:6px">v2026.07.13-承包商NMDC</span> <span id="sheetStatus" style="margin-left:8px"></span></p>
     </div>
     <div id="adminBadge" style="display:none"><span class="badge" style="color:var(--green);background:var(--greenBg)">ADMIN</span></div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -451,7 +451,7 @@ function gvizToNmdcPenaltyRows(gvizTable) {
 
 // NMDC NCR: 違規廠商 | 改善單編號 | 違規地點 | 違規敘述 | 缺失日期 | 開單日期 | 準備者 | 到期日 | 結案日期 | 結案收件者
 function gvizToNmdcNcrRows(gvizTable) {
-  const MAP = {'違規廠商':'subcon','廠商':'subcon','改善單編號':'ncr_no','編號':'ncr_no','違規地點':'location','地點':'location','違規敘述':'description','敘述':'description','內容':'description','危害種類':'hazard_type','缺失種類':'hazard_type','違規種類':'hazard_type','危害類別':'hazard_type','缺失日期':'defect_date','開單日期':'issue_date','準備者':'preparer','到期日':'due_date','期限':'due_date','結案日期':'close_date','結案收件者':'close_recipient','收件':'close_recipient'};
+  const MAP = {'違規廠商':'subcon','廠商':'subcon','改善單編號':'ncr_no','編號':'ncr_no','違規地點':'location','地點':'location','觀察種類':'obs_type','違規敘述':'description','敘述':'description','內容':'description','危害種類':'hazard_type','缺失種類':'hazard_type','違規種類':'hazard_type','危害類別':'hazard_type','缺失日期':'defect_date','開單日期':'issue_date','準備者':'preparer','到期日':'due_date','期限':'due_date','結案日期':'close_date','結案收件者':'close_recipient','收件':'close_recipient'};
   const colKeys = gvizTable.cols.map(c => { const lbl = (c.label || '').trim(); for (const [kw, key] of Object.entries(MAP)) { if (lbl.includes(kw)) return key; } return c.id; });
     // 保險：NMDC NCR 的「危害種類」固定為第 6 欄 (F)。若 GViz 未正確辨識表頭，直接鎖定該欄。
   if (!colKeys.includes('hazard_type') && colKeys.length > 5) colKeys[5] = 'hazard_type';
@@ -617,7 +617,7 @@ function processSheetData(socRows, tpcRows, mpData, govRows, penRows, ncrRows) {
   // NMDC NCR — kept SEPARATE; no 危害種類, so excluded from hazard analysis
   ncrRows.forEach((row, idx) => {
     const closeDate = row.close_date || '';
-    g.allData.push({ id: 'NMDCNCR-'+idx, date: row.issue_date || row.defect_date || '', type: '缺點', defectCategory: 'NMDC_NCR', subcontractor: mapNmdcSubcon(row.subcon), category: row.hazard_type || '', location: row.location || '', description: row.description || '', solved: !!closeDate, lsr: false, ncrNo: row.ncr_no || '', defectDate: row.defect_date || '', dueDate: row.due_date || '', preparer: row.preparer || '', closeDate: closeDate, closeRecipient: row.close_recipient || '', source: 'NMDC NCR', isPTWViolation: false });
+    g.allData.push({ id: 'NMDCNCR-'+idx, date: row.issue_date || row.defect_date || '', type: '缺點', defectCategory: (getDefectCategory(row.obs_type) || 'Condition'), subcontractor: mapNmdcSubcon(row.subcon), category: row.hazard_type || '', location: row.location || '', description: row.description || '', solved: !!closeDate, lsr: false, ncrNo: row.ncr_no || '', defectDate: row.defect_date || '', dueDate: row.due_date || '', preparer: row.preparer || '', closeDate: closeDate, closeRecipient: row.close_recipient || '', source: 'NMDC NCR', isPTWViolation: false });
   });
 
   // NMDC Penalty — kept SEPARATE
@@ -723,8 +723,9 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
     cats: socByCategory.map(c => ({ name:c.name, data: hzMonths.map(mm => (hzCatMonth[c.name]&&hzCatMonth[c.name][mm])||0) }))
   };
 
+  const perfBase = g.allData.filter(d => (d.type === '缺點' || d.type === '罰單') && hazardSources.includes(d.source) && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter));
   const subStats = {};
-  filtered.forEach(item => { if (item.subcontractor && (item.type === '缺點' || item.type === '罰單')) { if (!subStats[item.subcontractor]) subStats[item.subcontractor] = { name:item.subcontractor, soc:0, ncr:0, cond:0, act:0, closed:0, total:0 }; subStats[item.subcontractor].total++; if (item.defectCategory === 'Condition') subStats[item.subcontractor].cond++; else if (item.defectCategory === 'Action') subStats[item.subcontractor].act++; if (item.solved) subStats[item.subcontractor].closed++; if (item.source === 'SOC') subStats[item.subcontractor].soc++; else subStats[item.subcontractor].ncr++; } });
+  perfBase.forEach(item => { if (item.subcontractor) { if (!subStats[item.subcontractor]) subStats[item.subcontractor] = { name:item.subcontractor, soc:0, ncr:0, cond:0, act:0, closed:0, total:0 }; subStats[item.subcontractor].total++; if (item.defectCategory === 'Condition') subStats[item.subcontractor].cond++; else if (item.defectCategory === 'Action') subStats[item.subcontractor].act++; if (item.solved) subStats[item.subcontractor].closed++; if (item.source === 'SOC') subStats[item.subcontractor].soc++; else subStats[item.subcontractor].ncr++; } });
   const contractorRank = Object.values(subStats).filter(i=>i.total>0).map(c => ({...c, score: c.total > 0 ? Math.round((c.closed/c.total)*100) : 0})).sort((a,b) => b.score - a.score);
 
   const posStats = {};
@@ -1117,7 +1118,7 @@ function renderDashboard(){
     </div>
     <div class="grid grid-2" style="margin-bottom:22px">
       <div class="card">
-        <div class="card-head"><h3>🏆 承包商績效（缺失）<span style="font-size:10px;color:var(--textMut);font-weight:500;margin-left:4px">SOC/TPC/Gov</span></h3></div>
+        <div class="card-head"><h3>🏆 承包商績效（缺失）<span style="font-size:10px;color:var(--textMut);font-weight:500;margin-left:4px">依所選來源（含 NMDC NCR）</span></h3></div>
         <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>排名</th><th>承包商</th><th>條件</th><th>行為</th><th>合計</th><th>結案率</th></tr></thead>
         <tbody>${kpi.contractorRank.length > 0 ? kpi.contractorRank.map((c,i)=>{const r=c.total>0?Math.round((c.closed/c.total)*100):0;return`
           <tr><td style="font-weight:700;color:${i===0?'var(--amber)':'var(--text)'}">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</td>
