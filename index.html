@@ -191,7 +191,7 @@ a{color:var(--amber);text-decoration:none}
   <header class="header">
     <div>
       <h1 id="pageTitle">首頁 Home</h1>
-      <p class="header-sub">NMDC Energy — Tongxiao Power Plant Phase II · <span id="todayDate"></span> <span id="sheetStatus" style="margin-left:8px"></span></p>
+      <p class="header-sub">NMDC Energy — Tongxiao Power Plant Phase II · <span id="todayDate"></span> <span style="color:var(--green);font-weight:700;margin-left:6px">v2026.07.12-NMDC日期</span> <span id="sheetStatus" style="margin-left:8px"></span></p>
     </div>
     <div id="adminBadge" style="display:none"><span class="badge" style="color:var(--green);background:var(--greenBg)">ADMIN</span></div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -743,8 +743,8 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   const closedCond = allCondDef.filter(d => d.solved).length, closedAct = allActDef.filter(d => d.solved).length;
 
   // NMDC computations — SEPARATE; respects date+sub+loc, ignores the source dropdown
-  const nmdcNcrBase = g.allData.filter(d => d.source === 'NMDC NCR' && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter)); // 不受日期區間影響
-  const nmdcPenBase = g.allData.filter(d => d.source === 'NMDC Penalty' && (subFilter === 'All' || d.subcontractor === subFilter)); // 不受日期區間影響
+  const nmdcNcrBase = g.allData.filter(d => d.source === 'NMDC NCR' && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter));
+  const nmdcPenBase = g.allData.filter(d => d.source === 'NMDC Penalty' && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter));
   const nmdcNcrTotal = nmdcNcrBase.length;
   const nmdcNcrClosed = nmdcNcrBase.filter(d => d.solved).length;
   const nmdcNcrOpen = nmdcNcrTotal - nmdcNcrClosed;
@@ -1070,7 +1070,7 @@ function renderDashboard(){
     </div>
 
     <div class="card" style="margin-bottom:22px;border-left:3px solid var(--amber)">
-      <div class="card-head"><h3>🏢 NMDC 內部開立 (Penalty &amp; NCR)</h3><span style="font-size:10px;color:var(--textMut)">NMDC 自行對承攬商開立 · 獨立統計 · 不受日期影響（依區域／承攬商）</span></div>
+      <div class="card-head"><h3>🏢 NMDC 內部開立 (Penalty &amp; NCR)</h3><span style="font-size:10px;color:var(--textMut)">NMDC 自行對承攬商開立 · 獨立統計 · 依日期／區域／承攬商</span></div>
       <div class="grid grid-5" style="gap:0">
         ${[
           {l:"NMDC 罰款件數",v:s.nmdcPenTotal||0,c:'var(--amber)',sub:s.nmdcPenRevoked?`含 ${s.nmdcPenRevoked} 筆已撤銷`:'無撤銷'},
