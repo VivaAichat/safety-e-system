@@ -942,14 +942,16 @@ function downloadCatChartHi(){
   const total=cats.reduce((s,c)=>s+c.value,0);
   const N=(_catTopN==='all')?Infinity:(parseInt(_catTopN)||10);
   let disp=cats.slice();
-  if(disp.length>N){ const rest=disp.slice(N).reduce((s,c)=>s+c.value,0); disp=disp.slice(0,N).concat([{name:'其他 Others',value:rest}]); }
-  const topLbl=(_catTopN==='all')?'全部危害種類':('Top '+N+' 危害種類');
+  if(disp.length>N){ disp=disp.slice(0,N); } // Top N：只顯示前 N 名，不再合併「其他 Others」
+  const topLbl=(_catTopN==='all')?'All hazard types':('Top '+N+' hazard types');
   const SLIDE_PAL=['#2563eb','#0e8aa8','#059669','#d97706','#7c3aed','#db2777','#0891b2','#65a30d','#e11d48','#4f46e5'];
-  const colors=disp.map((c,i)=> c.name.indexOf('其他')===0 ? '#9aa3b2' : SLIDE_PAL[i%SLIDE_PAL.length]);
+  const colors=disp.map((c,i)=> SLIDE_PAL[i%SLIDE_PAL.length]);
   const srcs=(_lastCat.sources||[]);
-  const srcLbl=(srcs.length && srcs.length<4)? srcs.map(s=>s==='Gov'?'政府機關':s).join('、') : '全部來源';
+  const srcLbl=(srcs.length && srcs.length<4)? srcs.map(s=>s==='Gov'?'Government':s).join(', ') : 'All sources';
   const period=(_lastCat.start&&_lastCat.end)?(_lastCat.start+' ~ '+_lastCat.end):'';
-  const SUB=topLbl+'　·　共 '+total+' 件　·　'+srcLbl+(period?'　·　'+period:'');
+  const shown=disp.reduce((s,c)=>s+c.value,0);
+  const cntLbl=(disp.length<cats.length)?(total+' items total (top '+disp.length+' shown, '+shown+' items)'):(total+' items total');
+  const SUB=topLbl+'  ·  '+cntLbl+'  ·  '+srcLbl+(period?'  ·  '+period:'');
   const FOOT='NMDC Energy — Tongxiao Power Plant Phase II　·　產出 '+today();
   const H=Math.max(900, 182+disp.length*46+66); const off=document.createElement('canvas'); off.width=1600; off.height=H;
   off.style.cssText='position:absolute;left:-99999px;top:0'; document.body.appendChild(off);
