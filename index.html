@@ -646,6 +646,27 @@ function processSheetData(socRows, tpcRows, mpData, govRows, penRows, ncrRows) {
   });
 }
 
+// NMDC NCR：同一「改善單編號」的多列視為 1 筆
+// - 結案判定：該編號的所有列都有結案日，才算已結案
+// - 開單日取最早、到期日取最早、結案日取最晚；無編號者各自獨立計算
+// - mergedCount 記錄該編號原本的列數
+function dedupeNmdcNcr(rows) {
+  const out = [], map = new Map();
+  rows.forEach(d => {
+    const key = String(d.ncrNo || '').trim();
+    if (!key) { out.push(Object.assign({}, d, { mergedCount: 1 })); return; }
+    if (!map.has(key)) { const rec = Object.assign({}, d, { mergedCount: 1 }); map.set(key, rec); out.push(rec); return; }
+    const rec = map.get(key);
+    rec.mergedCount++;
+    rec.solved = rec.solved && d.solved;
+    if (!rec.solved) rec.closeDate = '';
+    else if ((d.closeDate || '') > (rec.closeDate || '')) rec.closeDate = d.closeDate;
+    if (d.date && (!rec.date || d.date < rec.date)) rec.date = d.date;
+    if (d.dueDate && (!rec.dueDate || d.dueDate < rec.dueDate)) rec.dueDate = d.dueDate;
+  });
+  return out;
+}
+
 function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   if (!sheetLoaded) return getFallbackKPI();
   const g = gsheetData;
@@ -744,7 +765,8 @@ function calcKPI(startDate, endDate, source, subFilter, locFilter, dcFilter) {
   const closedCond = allCondDef.filter(d => d.solved).length, closedAct = allActDef.filter(d => d.solved).length;
 
   // NMDC computations — SEPARATE; respects date+sub+loc, ignores the source dropdown
-  const nmdcNcrBase = g.allData.filter(d => d.source === 'NMDC NCR' && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter));
+  const nmdcNcrRows = g.allData.filter(d => d.source === 'NMDC NCR' && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter) && (locFilter === 'All' || d.location === locFilter));
+  const nmdcNcrBase = dedupeNmdcNcr(nmdcNcrRows); // 同一改善單編號只算 1 筆
   const nmdcPenBase = g.allData.filter(d => d.source === 'NMDC Penalty' && d.date >= startDate && d.date <= endDate && (subFilter === 'All' || d.subcontractor === subFilter));
   const nmdcNcrTotal = nmdcNcrBase.length;
   const nmdcNcrClosed = nmdcNcrBase.filter(d => d.solved).length;
@@ -1078,7 +1100,7 @@ function renderDashboard(){
         ${[
           {l:"NMDC 罰款件數",v:s.nmdcPenTotal||0,c:'var(--amber)',sub:s.nmdcPenRevoked?`含 ${s.nmdcPenRevoked} 筆已撤銷`:'無撤銷'},
           {l:"NMDC 罰款金額",v:'NT$'+((s.nmdcPenAmount||0).toLocaleString()),c:'var(--red)',sub:`含撤銷共 NT$${(s.nmdcPenAmountAll||0).toLocaleString()}`},
-          {l:"NMDC NCR 件數",v:s.nmdcNcrTotal||0,c:'var(--blue)',sub:''},
+          {l:"NMDC NCR 件數",v:s.nmdcNcrTotal||0,c:'var(--blue)',sub:'同一改善單編號計 1 筆'},
           {l:"NMDC NCR 未結案",v:s.nmdcNcrOpen||0,c:'var(--red)',sub:`已結 ${s.nmdcNcrClosed||0}`},
           {l:"NMDC NCR 結案率",v:(s.nmdcNcrClosure||0).toFixed(1)+'%',c:(s.nmdcNcrClosure>=80?'var(--green)':s.nmdcNcrClosure>=60?'var(--amber)':'var(--red)'),sub:''}
         ].map((x,i)=>`
@@ -1198,7 +1220,7 @@ function renderDeficiency(){
   const govOpen = g.allData.filter(d => d.source === 'Gov' && d.type !== '優點' && !d.solved);
   const tpcOverdue = tpcOpen.filter(d => d.dueDate && d.dueDate < todayStr).length;
   const govOverdue = govOpen.filter(d => d.dueDate && d.dueDate < todayStr).length;
-  const nmdcOpen = g.allData.filter(d => d.source === 'NMDC NCR' && !d.solved);
+  const nmdcOpen = dedupeNmdcNcr(g.allData.filter(d => d.source === 'NMDC NCR')).filter(d => !d.solved); // 同一改善單編號只算 1 筆
   const nmdcOverdue = nmdcOpen.filter(d => d.dueDate && d.dueDate < todayStr).length;
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -1281,7 +1303,7 @@ function renderNmdcNcrTable(items) {
       const overdue = d.dueDate && d.dueDate < todayStr;
       return `
       <tr style="${overdue?'background:rgba(239,68,68,.05)':''}">
-        <td style="font-family:var(--mono);font-weight:600;color:var(--amber)">${d.ncrNo||'-'}</td>
+        <td style="font-family:var(--mono);font-weight:600;color:var(--amber)">${d.ncrNo||'-'}${d.mergedCount>1?` <span style="font-family:var(--font);font-weight:500;font-size:10px;color:var(--textMut)" title="原始資料共 ${d.mergedCount} 列，同編號合併為 1 筆">·合併 ${d.mergedCount} 列</span>`:''}</td>
         <td style="white-space:nowrap">${d.date||'-'}</td>
         <td style="font-weight:600">${d.subcontractor||'-'}</td>
         <td>${d.location||'-'}</td>
